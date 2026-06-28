@@ -12,12 +12,24 @@ The teach loop:
   5. Accuracy dropped  → quarantine recent facts, emit TEACH_QUARANTINE
 """
 
+import math
 import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional, Tuple
 
 from core.event_bus import emit, EventType
+
+# Convergence: if the last 3 eval scores span less than this, learning has
+# stabilised — skip the eval rather than generating noise.
+# Borrowed from KDNuggets Workflow 3 (AUC convergence detection, 0.005 span).
+CONVERGENCE_DELTA = 0.005
+
+# PSI-style severity thresholds for accuracy drift (Workflow 4 / Claude analysis).
+# We apply them to the accuracy delta rather than bucket frequencies — same
+# conceptual boundary (stable / monitor / act) without needing raw distributions.
+DRIFT_MILD   = 0.10   # flag but don't quarantine
+DRIFT_SEVERE = 0.25   # quarantine aggressively
 
 
 # ── Extraction patterns (mirrors darkclaw_litellm.py) ─────────────────
@@ -159,6 +171,17 @@ class TeachEngine:
             **sig,
         )
 
+    def is_converged(self) -> bool:
+        """
+        True when the last 3 eval scores span < CONVERGENCE_DELTA.
+        Prevents eval churn when the fact graph has stabilised.
+        Pattern from KDNuggets Workflow 3 hyperparameter convergence check.
+        """
+        if len(self._eval_history) < 3:
+            return False
+        recent = [e.accuracy for e in self._eval_history[-3:]]
+        return (max(recent) - min(recent)) < CONVERGENCE_DELTA
+
     def run_eval(
         self,
         agent_id: str,
@@ -166,10 +189,22 @@ class TeachEngine:
     ) -> EvalResult:
         """
         Run accuracy evaluation against known ground truth.
-        Quarantines recent facts if accuracy drops.
+        Skips if converged. Quarantines recent facts if accuracy drops,
+        scaling quarantine depth to drift severity (PSI-style thresholds).
         """
         if not self.memory:
             return EvalResult(0.0, 0, 0, 0, 0.0, [])
+
+        # Skip eval when learning has stabilised — avoids noisy TEACH_EVAL spam.
+        if self.is_converged():
+            last = self._eval_history[-1]
+            emit(EventType.TEACH_EVAL, agent_id,
+                 accuracy=round(last.accuracy, 3),
+                 passed=last.passed,
+                 total=last.total_queries,
+                 delta=0.0,
+                 converged=True)
+            return last
 
         passed = 0
         failed_queries = []
@@ -187,12 +222,24 @@ class TeachEngine:
         delta    = accuracy - prev_acc
 
         quarantined = []
-        if delta < -0.1 and self._eval_history:
-            # Accuracy dropped more than 10% — quarantine recent facts
-            quarantined = self._quarantine_recent_facts(agent_id)
+        abs_delta = abs(delta)
+        if delta < -DRIFT_MILD and self._eval_history:
+            # Scale quarantine depth to drift severity (PSI-style thresholds):
+            #   mild   (0.10–0.25 drop) → quarantine 3 facts, emit warning
+            #   severe (>0.25 drop)     → quarantine 10 facts, emit stronger alert
+            if abs_delta >= DRIFT_SEVERE:
+                quarantine_n = 10
+            elif abs_delta >= DRIFT_MILD:
+                quarantine_n = 3
+            else:
+                quarantine_n = 0
+
+            if quarantine_n:
+                quarantined = self._quarantine_recent_facts(agent_id, n=quarantine_n)
             emit(EventType.TEACH_QUARANTINE, agent_id,
                  accuracy=accuracy,
                  delta=delta,
+                 severity="severe" if abs_delta >= DRIFT_SEVERE else "mild",
                  quarantined_count=len(quarantined),
                  failed_queries=[q for q, _, _ in failed_queries[:3]])
         elif delta > 0:

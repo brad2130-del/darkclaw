@@ -106,6 +106,16 @@ def classify_failure(error: Exception, context: dict) -> FailureType:
        "broken pipe" in msg or "network" in msg and "error" in msg:
         return FailureType.RESOURCE_ERROR
 
+    # Schema / null violations from data pipeline errors (KDNuggets Workflow 5 patterns)
+    if isinstance(error, (KeyError, ValueError)) or \
+       "missing column" in msg or "schema" in msg or "keyerror" in msg:
+        return FailureType.BAD_OUTPUT
+    if "integrityerror" in msg or ("null" in msg and "violation" in msg):
+        return FailureType.BAD_OUTPUT
+    if isinstance(error, (ImportError, ModuleNotFoundError)) or \
+       "no module named" in msg:
+        return FailureType.RESOURCE_ERROR
+
     return FailureType.UNKNOWN
 
 
@@ -123,6 +133,20 @@ STRATEGY_MAP: Dict[FailureType, List[RepairStrategy]] = {
 }
 
 MAX_ATTEMPTS = 3
+
+# Failure types that have a known repair path and are worth retrying.
+# UNKNOWN is excluded — burning 3 attempts on an unclassified error just
+# delays the human review that's actually needed.  Pattern borrowed from
+# KDNuggets "parse_pipeline_error → auto_fixable" (Workflow 5).
+AUTO_FIXABLE: set = {
+    FailureType.STALE_CONTEXT,
+    FailureType.TOOL_TIMEOUT,
+    FailureType.BAD_OUTPUT,
+    FailureType.ROUTING_MISS,
+    FailureType.CONTEXT_OVERFLOW,
+    FailureType.MEMORY_MISS,
+    FailureType.RESOURCE_ERROR,
+}
 
 
 # ── Repair executor ────────────────────────────────────────────────────
@@ -168,6 +192,26 @@ class HealEngine:
             context=context,
         )
         self._history.append(failure)
+
+        # Non-auto-fixable failures skip retries and go straight to the human
+        # queue — no point burning attempts on errors we can't repair in code.
+        if failure_type not in AUTO_FIXABLE:
+            self._escalation_queue.append(failure)
+            emit(EventType.HEAL_FAILED, agent_id,
+                 failure_type=failure_type, auto_fixable=False,
+                 queued_for_review=True)
+            return RepairResult(
+                success=False,
+                strategy=RepairStrategy.ESCALATE,
+                attempts=0,
+                teach_signal={
+                    "failure_type": failure_type,
+                    "strategy": None,
+                    "attempts": 0,
+                    "success": False,
+                    "auto_fixable": False,
+                },
+            )
 
         emit(EventType.HEAL_TRIGGERED, agent_id,
              failure_type=failure_type,
