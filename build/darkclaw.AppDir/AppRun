@@ -1,0 +1,58 @@
+#!/bin/bash
+# Darkclaw AppImage launcher
+set -e
+
+HERE="$(dirname "$(readlink -f "${0}")")"
+
+# ── Bundled Python runtime ───────────────────────────────────────────────
+export PYTHONHOME="$HERE/usr"
+export PYTHONPATH="$HERE/usr/lib/python3/site-packages"
+export PATH="$HERE/usr/bin:$PATH"
+export LD_LIBRARY_PATH="$HERE/usr/lib:${LD_LIBRARY_PATH:-}"
+
+PYTHON="$HERE/usr/bin/python3"
+
+# ── User config dir (XDG) ───────────────────────────────────────────────
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/darkclaw"
+mkdir -p "$CONFIG_DIR"
+export DARKCLAW_CONFIG="$CONFIG_DIR/darkclaw.env"
+export DARKCLAW_DB="$CONFIG_DIR/darkclaw.db"
+
+# ── Port ────────────────────────────────────────────────────────────────
+PORT="${DARKCLAW_PORT:-7430}"
+
+# ── Kill any existing instance on the same port ─────────────────────────
+fuser -k "${PORT}/tcp" 2>/dev/null || true
+
+# ── Start server ────────────────────────────────────────────────────────
+cd "$HERE"
+"$PYTHON" -m uvicorn ui.server:app \
+    --host 127.0.0.1 \
+    --port "$PORT" \
+    --log-level warning \
+    >> "$CONFIG_DIR/darkclaw.log" 2>&1 &
+SERVER_PID=$!
+
+echo "Darkclaw starting on http://127.0.0.1:$PORT (pid $SERVER_PID)"
+echo "$SERVER_PID" > "$CONFIG_DIR/darkclaw.pid"
+
+# ── Wait for server ready ───────────────────────────────────────────────
+URL="http://127.0.0.1:$PORT/health"
+for i in $(seq 1 30); do
+    if curl -sf "$URL" > /dev/null 2>&1; then
+        break
+    fi
+    sleep 0.5
+done
+
+# ── Open browser ────────────────────────────────────────────────────────
+OPEN_URL="http://127.0.0.1:$PORT"
+xdg-open "$OPEN_URL" 2>/dev/null \
+  || sensible-browser "$OPEN_URL" 2>/dev/null \
+  || firefox "$OPEN_URL" 2>/dev/null \
+  || google-chrome "$OPEN_URL" 2>/dev/null \
+  || chromium-browser "$OPEN_URL" 2>/dev/null \
+  || echo "Open your browser at $OPEN_URL"
+
+# ── Stay alive until server exits ────────────────────────────────────────
+wait $SERVER_PID

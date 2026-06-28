@@ -1,0 +1,400 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Darkclaw — Setup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --void:    #0d0a08;
+  --panel:   #181210;
+  --surface: #1e1714;
+  --border:  #2e2018;
+  --text:    #e8d8c0;
+  --muted:   #806050;
+  --rose:    #e89890;
+  --amber:   #f0c060;
+  --synapse: #68d898;
+  --fault:   #e06868;
+  --data:    #78a8e8;
+  --font-d:  "Space Grotesk", system-ui, sans-serif;
+  --font-m:  "JetBrains Mono", monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;background:var(--void);color:var(--text);font-family:var(--font-d);}
+
+body {
+  display:flex;align-items:center;justify-content:center;min-height:100vh;
+  background: radial-gradient(ellipse at 30% 20%, rgba(232,152,144,0.06) 0%, transparent 60%),
+              radial-gradient(ellipse at 70% 80%, rgba(120,168,232,0.04) 0%, transparent 60%),
+              var(--void);
+}
+
+.wizard {
+  width:520px;
+  background:var(--panel);
+  border:1px solid var(--border);
+  border-radius:12px;
+  overflow:hidden;
+  box-shadow:0 24px 80px rgba(0,0,0,0.5);
+}
+
+/* ── Header ── */
+.wiz-header {
+  padding:28px 32px 24px;
+  border-bottom:1px solid var(--border);
+  background:linear-gradient(135deg,#1a100c 0%,#160f12 100%);
+}
+.wiz-logo {
+  display:flex;align-items:center;gap:12px;margin-bottom:16px;
+}
+.wiz-logo svg { width:32px;height:32px;flex-shrink:0; }
+.wiz-logo-text { font-size:20px;font-weight:700; }
+.wiz-logo-text span { color:var(--rose); }
+.wiz-tagline { font-size:13px;color:var(--muted); }
+
+/* ── Steps indicator ── */
+.steps {
+  display:flex;align-items:center;gap:0;padding:0 32px;
+  border-bottom:1px solid var(--border);
+  background:var(--surface);
+}
+.step-dot {
+  flex:1;padding:12px 0;text-align:center;
+  font-family:var(--font-m);font-size:10px;letter-spacing:0.08em;
+  color:var(--muted);border-bottom:2px solid transparent;
+  transition:all 0.2s;cursor:default;
+}
+.step-dot.active { color:var(--text);border-bottom-color:var(--rose); }
+.step-dot.done   { color:var(--synapse);border-bottom-color:transparent; }
+
+/* ── Body ── */
+.wiz-body { padding:32px; }
+
+.step-panel { display:none; }
+.step-panel.active { display:block; }
+
+h2 { font-size:18px;font-weight:600;margin-bottom:6px; }
+.sub { font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.6; }
+
+/* Backend choice cards */
+.option-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px; }
+.option-card {
+  border:1px solid var(--border);border-radius:8px;padding:16px 10px;
+  text-align:center;cursor:pointer;transition:all 0.15s;background:var(--surface);
+}
+.option-card:hover { border-color:rgba(232,152,144,0.4); }
+.option-card.selected { border-color:var(--rose);background:rgba(232,152,144,0.06); }
+.opt-icon { font-size:24px;margin-bottom:8px; }
+.opt-title { font-size:12px;font-weight:600;margin-bottom:2px; }
+.opt-sub { font-size:10px;color:var(--muted);line-height:1.4; }
+
+/* Form fields */
+.field { margin-bottom:18px; }
+.field label { display:block;font-size:11px;font-family:var(--font-m);letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase; }
+.field input {
+  width:100%;background:var(--surface);border:1px solid var(--border);
+  border-radius:6px;color:var(--text);font-family:var(--font-m);font-size:12px;
+  padding:10px 12px;outline:none;transition:border-color 0.15s;
+}
+.field input:focus { border-color:rgba(232,152,144,0.5); }
+.field input::placeholder { color:var(--muted); }
+.field-hint { font-size:11px;color:var(--muted);margin-top:4px; }
+.field-hint a { color:var(--data);text-decoration:none; }
+.field-hint a:hover { text-decoration:underline; }
+
+.hidden { display:none!important; }
+
+/* Test result */
+.test-box {
+  background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:16px;margin-bottom:20px;min-height:60px;
+}
+.test-status { font-size:12px;color:var(--muted);font-family:var(--font-m); }
+.test-status.ok   { color:var(--synapse); }
+.test-status.fail { color:var(--fault); }
+
+.model-list { margin-top:10px; }
+.model-chip {
+  display:inline-block;background:rgba(120,168,232,0.12);border:1px solid rgba(120,168,232,0.25);
+  border-radius:4px;padding:2px 8px;font-size:10px;font-family:var(--font-m);
+  color:var(--data);margin:2px;
+}
+
+.default-model-row { margin-top:16px; }
+
+/* Buttons */
+.btn-row { display:flex;justify-content:space-between;align-items:center;margin-top:28px; }
+.btn {
+  padding:10px 24px;border-radius:6px;font-family:var(--font-d);font-size:13px;
+  font-weight:600;cursor:pointer;border:none;transition:all 0.15s;
+}
+.btn-primary { background:var(--rose);color:#1a0808; }
+.btn-primary:hover { background:#f0a8a0; }
+.btn-primary:disabled { opacity:0.4;cursor:not-allowed; }
+.btn-ghost { background:transparent;border:1px solid var(--border);color:var(--muted); }
+.btn-ghost:hover { border-color:var(--border-hi);color:var(--text); }
+
+.spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(232,152,144,0.2);border-top-color:var(--rose);border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+.done-icon { text-align:center;font-size:48px;margin-bottom:16px; }
+.done-title { text-align:center;font-size:20px;font-weight:600;margin-bottom:8px; }
+.done-sub { text-align:center;font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.6; }
+</style>
+</head>
+<body>
+<div class="wizard">
+
+  <!-- Header -->
+  <div class="wiz-header">
+    <div class="wiz-logo">
+      <svg viewBox="0 0 32 32" fill="none">
+        <path d="M16 3 C11 8, 7 13, 9 22" stroke="#e89890" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <path d="M16 3 C16 11, 16 16, 16 24" stroke="#e89890" stroke-width="3" stroke-linecap="round" fill="none"/>
+        <path d="M16 3 C21 8, 25 13, 23 22" stroke="#e89890" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <circle cx="16" cy="3" r="3" fill="#e89890"/>
+      </svg>
+      <div class="wiz-logo-text">Dark<span>Claw</span></div>
+    </div>
+    <div class="wiz-tagline">Self-healing AI harness for your business — let's get Rosie running.</div>
+  </div>
+
+  <!-- Step tabs -->
+  <div class="steps">
+    <div class="step-dot active" id="tab-1">1 · Choose AI</div>
+    <div class="step-dot" id="tab-2">2 · Configure</div>
+    <div class="step-dot" id="tab-3">3 · Test & Done</div>
+  </div>
+
+  <!-- Step 1: Choose backend -->
+  <div class="wiz-body">
+  <div class="step-panel active" id="panel-1">
+    <h2>How will Rosie think?</h2>
+    <p class="sub">Pick where your AI runs. You can change this later in Settings.</p>
+    <div class="option-grid">
+      <div class="option-card" data-val="anthropic" onclick="selectBackend('anthropic',this)">
+        <div class="opt-icon">☁️</div>
+        <div class="opt-title">Cloud AI</div>
+        <div class="opt-sub">Anthropic Claude<br>API key required</div>
+      </div>
+      <div class="option-card" data-val="ollama" onclick="selectBackend('ollama',this)">
+        <div class="opt-icon">🏠</div>
+        <div class="opt-title">Local / Homelab</div>
+        <div class="opt-sub">Ollama on your machine or LAN server</div>
+      </div>
+      <div class="option-card" data-val="both" onclick="selectBackend('both',this)">
+        <div class="opt-icon">⚡</div>
+        <div class="opt-title">Both</div>
+        <div class="opt-sub">Cloud fallback when local fails</div>
+      </div>
+    </div>
+    <div class="btn-row">
+      <span></span>
+      <button class="btn btn-primary" id="btn-step1-next" onclick="goStep(2)" disabled>Next →</button>
+    </div>
+  </div>
+
+  <!-- Step 2: Credentials -->
+  <div class="step-panel" id="panel-2">
+    <h2>Connect your AI</h2>
+    <p class="sub">Fill in what you need below. Nothing is sent anywhere except to your chosen provider.</p>
+
+    <div id="field-anthropic">
+      <div class="field">
+        <label>Anthropic API Key</label>
+        <input type="password" id="in-apikey" placeholder="sk-ant-api03-..." autocomplete="off">
+        <div class="field-hint">Get one free at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
+      </div>
+    </div>
+
+    <div id="field-ollama">
+      <div class="field">
+        <label>Ollama URL</label>
+        <input type="text" id="in-ollama" value="http://localhost:11434" placeholder="http://localhost:11434">
+        <div class="field-hint">Local: <code style="color:var(--data)">http://localhost:11434</code> — Homelab: use your LAN IP, e.g. <code style="color:var(--data)">http://192.168.1.210:11434</code></div>
+      </div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+      <button class="btn btn-primary" onclick="goStep(3)">Test Connection →</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Test + Finish -->
+  <div class="step-panel" id="panel-3">
+    <h2>Testing your setup…</h2>
+    <p class="sub" id="test-sub">Checking connectivity and available models.</p>
+
+    <div class="test-box" id="test-box">
+      <div class="test-status" id="test-status"><span class="spinner"></span> Connecting…</div>
+      <div class="model-list" id="model-list"></div>
+    </div>
+
+    <div id="default-model-row" class="field hidden">
+      <label>Default Model</label>
+      <input type="text" id="in-default-model" placeholder="e.g. llama3.1:latest or claude-haiku-4-5">
+      <div class="field-hint">The model Rosie will use for most tasks. You can always change this later.</div>
+    </div>
+
+    <div id="done-panel" class="hidden">
+      <div class="done-icon">🌿</div>
+      <div class="done-title">Rosie is ready!</div>
+      <div class="done-sub">Your AI harness is configured.<br>Head to the dashboard to get started.</div>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-ghost" onclick="goStep(2)" id="btn-back-3">← Back</button>
+      <button class="btn btn-primary" id="btn-finish" onclick="finish()" disabled>Open Dashboard →</button>
+    </div>
+  </div>
+  </div><!-- wiz-body -->
+
+</div><!-- wizard -->
+
+<script>
+let backend = null;
+let testOk = false;
+let discoveredModels = [];
+
+function selectBackend(val, el) {
+  backend = val;
+  document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('btn-step1-next').disabled = false;
+}
+
+function goStep(n) {
+  // Update tabs
+  for(let i=1;i<=3;i++){
+    const t = document.getElementById('tab-'+i);
+    const p = document.getElementById('panel-'+i);
+    t.classList.remove('active','done');
+    p.classList.remove('active');
+    if(i < n) t.classList.add('done');
+    if(i === n){ t.classList.add('active'); p.classList.add('active'); }
+  }
+
+  if(n === 2) setupStep2();
+  if(n === 3) runTest();
+}
+
+function setupStep2() {
+  const fa = document.getElementById('field-anthropic');
+  const fo = document.getElementById('field-ollama');
+  fa.style.display = (backend === 'anthropic' || backend === 'both') ? '' : 'none';
+  fo.style.display = (backend === 'ollama'    || backend === 'both') ? '' : 'none';
+}
+
+async function runTest() {
+  testOk = false;
+  document.getElementById('btn-finish').disabled = true;
+  document.getElementById('done-panel').classList.add('hidden');
+  document.getElementById('default-model-row').classList.add('hidden');
+  document.getElementById('model-list').innerHTML = '';
+  document.getElementById('test-status').className = 'test-status';
+  document.getElementById('test-status').innerHTML = '<span class="spinner"></span> Connecting…';
+  document.getElementById('test-sub').textContent = 'Checking connectivity and available models.';
+  document.getElementById('btn-back-3').disabled = false;
+
+  const results = [];
+
+  if(backend === 'anthropic' || backend === 'both') {
+    const key = document.getElementById('in-apikey').value.trim();
+    if(key) {
+      const r = await testConn('anthropic', key, '');
+      results.push({ type:'anthropic', ...r });
+    }
+  }
+
+  if(backend === 'ollama' || backend === 'both') {
+    const url = document.getElementById('in-ollama').value.trim() || 'http://localhost:11434';
+    const r = await testConn('ollama', '', url);
+    results.push({ type:'ollama', ...r });
+    if(r.ok) discoveredModels = r.models || [];
+  }
+
+  const allOk = results.length > 0 && results.some(r=>r.ok);
+  testOk = allOk;
+
+  if(allOk) {
+    const lines = results.map(r =>
+      r.ok ? `<span style="color:var(--synapse)">✓ ${r.type === 'anthropic' ? 'Anthropic Claude' : 'Ollama'} connected</span>`
+            : `<span style="color:var(--fault)">✗ ${r.type} — ${r.error||'unreachable'}</span>`
+    ).join('<br>');
+    document.getElementById('test-status').innerHTML = lines;
+    document.getElementById('test-status').className = 'test-status ok';
+
+    // Show discovered models
+    if(discoveredModels.length) {
+      document.getElementById('model-list').innerHTML =
+        '<div style="margin-top:10px;font-size:10px;color:var(--muted);font-family:var(--font-m);margin-bottom:4px;">AVAILABLE MODELS</div>' +
+        discoveredModels.map(m=>`<span class="model-chip">${m}</span>`).join('');
+      const dm = document.getElementById('in-default-model');
+      if(!dm.value) dm.value = discoveredModels[0] || '';
+    } else if(backend !== 'ollama') {
+      document.getElementById('in-default-model').value = 'claude-haiku-4-5';
+    }
+
+    document.getElementById('default-model-row').classList.remove('hidden');
+    document.getElementById('done-panel').classList.remove('hidden');
+    document.getElementById('test-sub').textContent = 'Everything looks good. Pick your default model below.';
+    document.getElementById('btn-finish').disabled = false;
+  } else {
+    const errs = results.map(r=>`${r.type}: ${r.error||'unreachable'}`).join('; ');
+    document.getElementById('test-status').className = 'test-status fail';
+    document.getElementById('test-status').textContent = '✗ Connection failed — ' + (errs || 'check your settings');
+    document.getElementById('test-sub').textContent = 'Check the details and go back to try again.';
+  }
+}
+
+async function testConn(type, key, url) {
+  try {
+    const r = await fetch('/api/test-connection', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type, key, url})
+    });
+    return await r.json();
+  } catch(e) {
+    return {ok:false, error:String(e), models:[]};
+  }
+}
+
+async function finish() {
+  document.getElementById('btn-finish').disabled = true;
+  document.getElementById('btn-finish').innerHTML = '<span class="spinner"></span> Saving…';
+
+  const body = {
+    backend,
+    anthropic_key: document.getElementById('in-apikey')?.value?.trim() || '',
+    ollama_url: document.getElementById('in-ollama')?.value?.trim() || 'http://localhost:11434',
+    default_model: document.getElementById('in-default-model')?.value?.trim() || '',
+  };
+
+  try {
+    const r = await fetch('/api/setup', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify(body)
+    });
+    const d = await r.json();
+    if(d.ok) {
+      window.location.href = '/';
+    } else {
+      alert('Save failed: ' + (d.error||'unknown error'));
+      document.getElementById('btn-finish').disabled = false;
+      document.getElementById('btn-finish').textContent = 'Open Dashboard →';
+    }
+  } catch(e) {
+    alert('Could not save: ' + e);
+    document.getElementById('btn-finish').disabled = false;
+    document.getElementById('btn-finish').textContent = 'Open Dashboard →';
+  }
+}
+</script>
+</body>
+</html>

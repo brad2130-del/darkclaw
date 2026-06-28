@@ -6,7 +6,6 @@ __pycache__/
 venv/
 *.egg-info/
 dist/
-build/
 
 # Secrets — never commit
 .env
@@ -27,6 +26,20 @@ Thumbs.db
 .vscode/
 *.swp
 *.swo
+
+# Build artifacts (not the build scripts themselves)
+build/*.AppImage
+build/darkclaw.AppDir/usr/
+build/darkclaw.AppDir/.venv/
+build/darkclaw.AppDir/__pycache__/
+build/darkclaw.AppDir/*.py
+build/darkclaw.AppDir/*.md
+build/darkclaw.AppDir/agents/
+build/darkclaw.AppDir/core/
+build/darkclaw.AppDir/memory/
+build/darkclaw.AppDir/tests/
+build/darkclaw.AppDir/ui/
+build/darkclaw.AppDir/daydream/
 
 # Logs / temp
 *.log

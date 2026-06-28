@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Darkclaw
+GenericName=AI Business Harness
+Comment=Self-healing, self-teaching AI assistant for your business
+Exec=darkclaw
+Icon=darkclaw
+Type=Application
+Categories=Office;Utility;
+Keywords=AI;business;assistant;Rosie;Darkclaw;
+StartupNotify=true
