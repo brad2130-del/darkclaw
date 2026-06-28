@@ -123,25 +123,30 @@ def _doc_id(filename: str, content_hash: str) -> str:
 def ingest_document(filename: str, raw_bytes: bytes, memory) -> dict:
     """
     Parse, chunk, and ingest a document into Darkclaw memory.
+    Uses vision_chunker for layout-aware semantic chunking.
     Returns metadata dict describing what was stored.
     """
+    from core.vision_chunker import chunk_document, chunk_summary
+
     content_hash = hashlib.md5(raw_bytes).hexdigest()[:10]
     doc_id       = _doc_id(filename, content_hash)
 
-    # Check for duplicate
     meta = _load_meta()
     if doc_id in meta:
         return {**meta[doc_id], "duplicate": True}
 
-    text   = extract_text(filename, raw_bytes)
-    chunks = chunk_text(text)
+    # Vision-aware semantic chunking (falls back to word-count if needed)
+    chunks = chunk_document(filename, raw_bytes)
+    summary = chunk_summary(chunks)
 
-    # Ingest each chunk as a memory fact
+    # Ingest each typed chunk as a memory fact
     ingested = 0
     for i, chunk in enumerate(chunks):
         subject    = f"doc:{doc_id}:chunk_{i}"
-        predicate  = "DOCUMENT_CHUNK"
-        object_val = f"[{filename} §{i+1}] {chunk[:120]}"
+        # Predicate encodes chunk type so agents know what they're reading
+        predicate  = f"DOC_{chunk.type.upper().replace(' ','_')}"
+        object_val = chunk.to_object_val()
+        ingest_text = chunk.to_ingest_text(filename, i)
         try:
             memory.ingest_fact(
                 agent_id="docs",
@@ -149,36 +154,53 @@ def ingest_document(filename: str, raw_bytes: bytes, memory) -> dict:
                 predicate=predicate,
                 object_val=object_val,
                 speaker="doc_store",
-                text=chunk,              # full chunk goes into text search
+                text=ingest_text,
             )
             ingested += 1
         except Exception:
             pass
 
-    # Also ingest a summary fact so agents can find the doc by name
+        # Titles also become named entities in the graph for direct lookup
+        if chunk.type == "Title" and len(chunk.text) > 3:
+            ent = chunk.text[:60].replace(" ", "_")
+            try:
+                memory.ingest_fact(
+                    agent_id="docs",
+                    subject=ent,
+                    predicate="TITLE_IN",
+                    object_val=filename,
+                    speaker="doc_store",
+                    text=chunk.text,
+                )
+            except Exception:
+                pass
+
+    # Summary fact for doc-by-name lookup
     memory.ingest_fact(
         agent_id="docs",
         subject=f"doc:{doc_id}",
         predicate="IS_DOCUMENT",
         object_val=filename,
         speaker="doc_store",
-        text=f"Document: {filename} — {len(chunks)} chunks indexed",
+        text=f"Document: {filename} — {ingested} chunks "
+             f"({summary.get('by_type', {})})",
     )
 
     record = {
-        "doc_id":     doc_id,
-        "filename":   filename,
-        "size_bytes": len(raw_bytes),
-        "chunks":     len(chunks),
-        "ingested":   ingested,
-        "hash":       content_hash,
+        "doc_id":      doc_id,
+        "filename":    filename,
+        "size_bytes":  len(raw_bytes),
+        "chunks":      len(chunks),
+        "ingested":    ingested,
+        "chunk_types": summary.get("by_type", {}),
+        "titles":      summary.get("titles", []),
+        "hash":        content_hash,
         "uploaded_at": time.time(),
-        "duplicate":  False,
+        "duplicate":   False,
     }
     meta[doc_id] = record
     _save_meta(meta)
 
-    # Save raw file for reference
     dest = DOCS_DIR / f"{doc_id}_{filename}"
     dest.write_bytes(raw_bytes)
 

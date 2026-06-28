@@ -320,7 +320,8 @@ async def upload_doc(file: UploadFile = File(...)):
          subject=f"doc:{record['doc_id']}",
          predicate="IS_DOCUMENT",
          object=file.filename,
-         chunks=record["chunks"])
+         chunks=record["chunks"],
+         chunk_types=record.get("chunk_types", {}))
     return {"ok": True, **record}
 
 
