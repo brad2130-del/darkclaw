@@ -102,8 +102,15 @@ class WorkerAgent(BaseAgent):
             messages.append({"role": "system", "content": correction})
         messages.append({"role": "user", "content": task})
 
+        # Pass api_base for Ollama so litellm routes to the configured server
+        extra = {}
+        if model.startswith("ollama/"):
+            ollama_url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
+            if ollama_url:
+                extra["api_base"] = ollama_url.rstrip("/")
+
         response, _diff = self._middleware.completion(
-            model=model, messages=messages, agent_id=self.agent_id,
+            model=model, messages=messages, agent_id=self.agent_id, **extra,
         )
         try:
             return response.choices[0].message.content or ""

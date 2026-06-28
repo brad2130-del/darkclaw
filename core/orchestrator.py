@@ -205,9 +205,17 @@ class Orchestrator:
         Construct memory + heal + teach + tools + agents + guardian, all wired.
         This is the one call ui/server.py needs.
         """
+        import os
         from memory.darkclaw_core import DarkclawEngine
         from core.heal_engine import HealEngine
         from core.teach_engine import TeachEngine
+
+        # Wire OLLAMA_API_BASE so litellm can reach the configured Ollama server
+        ollama_url = os.environ.get("OLLAMA_BASE_URL", "").rstrip("/")
+        if ollama_url:
+            os.environ["OLLAMA_API_BASE"] = ollama_url
+
+        model = cls._resolve_model()
 
         memory = DarkclawEngine(db_path=db_path)
         healer = HealEngine(memory_engine=memory)
@@ -221,14 +229,42 @@ class Orchestrator:
             from agents.worker import WorkerAgent
             from agents.base_agent import AgentConfig
             orc.register_agent(WorkerAgent(
-                AgentConfig(agent_id="rosie", role="helper"), memory=memory))
+                AgentConfig(agent_id="rosie", role="helper", model=model), memory=memory))
             orc.register_agent(WorkerAgent(
-                AgentConfig(agent_id="kit", role="shopkeeper"), memory=memory))
+                AgentConfig(agent_id="kit", role="shopkeeper", model=model), memory=memory))
 
         from agents.guardian import GuardianAgent
         orc.attach_guardian(GuardianAgent(orchestrator=orc, heal_engine=healer))
 
         return orc
+
+    @staticmethod
+    def _resolve_model() -> str:
+        """Pick the best available model based on configured env vars."""
+        import os
+        dm = os.environ.get("DEFAULT_MODEL", "").strip()
+        ollama_url = os.environ.get("OLLAMA_BASE_URL", "")
+
+        if dm:
+            # Bare Ollama model name (e.g. "llama3.1:latest") — add litellm prefix
+            if ollama_url and not dm.startswith(("claude", "gpt", "xai/", "gemini/", "mistral/")):
+                return f"ollama/{dm}"
+            return dm
+
+        # Auto-select by priority: Anthropic → OpenAI → xAI → Gemini → Mistral → Ollama
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            return "claude-haiku-4-5"
+        if os.environ.get("OPENAI_API_KEY"):
+            return "gpt-4o-mini"
+        if os.environ.get("XAI_API_KEY"):
+            return "xai/grok-3-mini"
+        if os.environ.get("GEMINI_API_KEY"):
+            return "gemini/gemini-2.0-flash-lite"
+        if os.environ.get("MISTRAL_API_KEY"):
+            return "mistral/mistral-small-latest"
+        if ollama_url:
+            return "ollama/llama3.1:latest"
+        return "claude-haiku-4-5"
 
     # ── demo scenario: exercise every subsystem for real ────────────────
 
