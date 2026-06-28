@@ -120,12 +120,15 @@ class WorkerAgent(BaseAgent):
             messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
         messages.append({"role": "user", "content": task})
 
-        # Pass api_base for Ollama so litellm routes to the configured server
+        # Pass api_base + placement options (num_gpu, num_ctx) for Ollama
         extra = {}
         if model.startswith("ollama/"):
             ollama_url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
             if ollama_url:
                 extra["api_base"] = ollama_url.rstrip("/")
+            model_opts = context.get("model_options", {})
+            if model_opts:
+                extra["options"] = model_opts
 
         response, _diff = self._middleware.completion(
             model=model, messages=messages, agent_id=self.agent_id, **extra,

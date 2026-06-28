@@ -217,8 +217,8 @@ async def stream_submit(body: SubmitIn):
             agent     = orc.agents.get(target_id) or next(iter(orc.agents.values()))
 
             from core.model_router import router, score_complexity
-            complexity = score_complexity(body.task)
-            model      = router.pick(agent.config.role, body.task, complexity)
+            complexity    = score_complexity(body.task)
+            model, opts   = router.pick(agent.config.role, body.task, complexity)
 
             # Build context with memory + docs
             context = {}
@@ -243,12 +243,14 @@ async def stream_submit(body: SubmitIn):
                 messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
             messages.append({"role": "user", "content": body.task})
 
-            # Ollama routing
+            # Ollama routing — include placement options (num_gpu, num_ctx)
             extra = {}
             if model.startswith("ollama/"):
                 url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
                 if url:
                     extra["api_base"] = url.rstrip("/")
+                if opts:
+                    extra["options"] = opts
 
             # Announce agent + model
             yield f"data: {_json.dumps({'type':'meta','agent_id':target_id,'model':model})}\n\n"

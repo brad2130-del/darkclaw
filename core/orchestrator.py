@@ -111,8 +111,9 @@ class Orchestrator:
         # ── dynamic model selection via ModelRouter ─────────────────────
         from core.model_router import router, score_complexity
         complexity = score_complexity(task)
-        best_model = router.pick(agent.config.role, task, complexity)
-        context["model_override"] = best_model
+        best_model, model_opts = router.pick(agent.config.role, task, complexity)
+        context["model_override"]  = best_model
+        context["model_options"]   = model_opts   # num_gpu, num_ctx etc.
 
         retry_fn = lambda: agent.run(task, context)
 
@@ -130,7 +131,7 @@ class Orchestrator:
 
         # ── async RAG extraction (fire-and-forget) ───────────────────────
         if result and result.success and result.output and self.memory:
-            router.record_use(best_model)
+            router.record_use(best_model)  # update GPU heat tracking
             from core.rag_extractor import schedule_rag
             schedule_rag(task, result.output, target_id, self.memory)
 
