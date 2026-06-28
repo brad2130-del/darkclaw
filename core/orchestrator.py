@@ -108,6 +108,12 @@ class Orchestrator:
                 emit(EventType.MEMORY_HIT, "docs",
                      query=task[:80], tier=doc_qr._classify_tier(), method=doc_qr.method)
 
+        # ── dynamic model selection via ModelRouter ─────────────────────
+        from core.model_router import router, score_complexity
+        complexity = score_complexity(task)
+        best_model = router.pick(agent.config.role, task, complexity)
+        context["model_override"] = best_model
+
         retry_fn = lambda: agent.run(task, context)
 
         # ── run, then self-heal if it breaks ────────────────────────────
@@ -121,6 +127,12 @@ class Orchestrator:
         # ── self-teach from a good result ───────────────────────────────
         if self.teacher and result and result.success and result.output:
             self.teacher.ingest_from_text(target_id, str(result.output))
+
+        # ── async RAG extraction (fire-and-forget) ───────────────────────
+        if result and result.success and result.output and self.memory:
+            router.record_use(best_model)
+            from core.rag_extractor import schedule_rag
+            schedule_rag(task, result.output, target_id, self.memory)
 
         return result
 

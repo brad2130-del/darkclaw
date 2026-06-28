@@ -1529,6 +1529,12 @@ function handleServerEvent(ev) {
     state.escalations.push({agent_id:ev.agent_id,...ev.data});
   } else if(ev.type==="memory.ingest") {
     if(ev.data.subject) ingestFact(ev.data.subject,ev.data.predicate,ev.data.object);
+  } else if(ev.type==="health.ok" && ev.data.agents) {
+    // Heartbeat — refresh all agent statuses
+    Object.entries(ev.data.agents).forEach(([aid, info]) => {
+      if(!state.agents[aid]) state.agents[aid] = {id:aid};
+      Object.assign(state.agents[aid], {id:aid, ...info});
+    });
   }
   emit(ev.type, ev.agent_id, ev.data);
   renderAll();

@@ -105,10 +105,30 @@ class TestConnIn(BaseModel):
 async def _startup():
     global orc
     orc = Orchestrator.bootstrap()
-    # Start the Guardian watchdog in the background.
     if orc.guardian:
         asyncio.create_task(orc.guardian.watch_loop())
     emit(EventType.SYSTEM_START, "darkclaw", msg="Darkclaw online", port=7430)
+    # Re-announce all agents so any browser that connects after startup
+    # gets AGENT_STARTED events in the history replay window.
+    for aid, agent in orc.agents.items():
+        emit(EventType.AGENT_STARTED, aid,
+             role=agent.config.role, model=agent.config.model)
+    asyncio.create_task(_heartbeat_loop())
+
+
+async def _heartbeat_loop():
+    """Emit a snapshot every 30s so the topology stays live."""
+    from core.model_router import router
+    while True:
+        await asyncio.sleep(30)
+        vram = router.vram_state()
+        agent_snap = {
+            aid: {"role": a.config.role, "model": a.config.model,
+                  "status": a.status, "tasks": a._task_count}
+            for aid, a in orc.agents.items()
+        }
+        emit(EventType.HEALTH_OK, "darkclaw",
+             msg="heartbeat", agents=agent_snap, vram=vram)
 
 
 # ── pages ─────────────────────────────────────────────────────────────────
@@ -135,7 +155,21 @@ async def daydream():
 @app.websocket("/ws")
 async def ws(websocket: WebSocket):
     await websocket.accept()
-    # Replay recent history so a freshly-opened browser isn't blank.
+    # Send current agent snapshot immediately so topology renders on connect.
+    import json as _json, time as _time
+    if orc:
+        for aid, agent in orc.agents.items():
+            snap = _json.dumps({
+                "event_id": f"snap-{aid}",
+                "type": "agent.started",
+                "agent_id": aid,
+                "data": {"role": agent.config.role, "model": agent.config.model,
+                         "status": agent.status},
+                "timestamp": _time.time(),
+                "ts_human": _time.strftime("%H:%M:%S"),
+            })
+            await websocket.send_text(snap)
+    # Replay recent event history.
     for event in bus.recent(40):
         await websocket.send_text(event.to_json())
     try:
