@@ -40,12 +40,13 @@ else:
     load_dotenv(ENV_PATH)
 
 import httpx
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
 
 from core.event_bus import bus, emit, EventType
 from core.orchestrator import Orchestrator
+from core.doc_store import ingest_document, list_documents, delete_document
 
 INDEX_HTML   = os.path.join(ROOT, "ui", "static", "index.html")
 DAYDREAM_HTML = os.path.join(ROOT, "daydream", "daydream.html")
@@ -188,6 +189,33 @@ async def demo():
 @app.get("/health")
 async def health():
     return orc.health()
+
+
+# ── Document store API ────────────────────────────────────────────────────
+
+@app.post("/api/docs/upload")
+async def upload_doc(file: UploadFile = File(...)):
+    raw = await file.read()
+    if len(raw) > 20 * 1024 * 1024:
+        return JSONResponse({"ok": False, "error": "File too large (20 MB max)"}, status_code=413)
+    record = ingest_document(file.filename, raw, orc.memory)
+    emit(EventType.MEMORY_INGEST, "docs",
+         subject=f"doc:{record['doc_id']}",
+         predicate="IS_DOCUMENT",
+         object=file.filename,
+         chunks=record["chunks"])
+    return {"ok": True, **record}
+
+
+@app.get("/api/docs")
+async def get_docs():
+    return {"docs": list_documents()}
+
+
+@app.delete("/api/docs/{doc_id}")
+async def delete_doc(doc_id: str):
+    ok = delete_document(doc_id, orc.memory)
+    return {"ok": ok}
 
 
 # ── Setup / config API ─────────────────────────────────────────────────────

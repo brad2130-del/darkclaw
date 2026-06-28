@@ -176,7 +176,7 @@ body.ss #c{width:100vw !important;height:100vh !important}
 </div>
 
 <div id="bar">
-  <span class="bh">✿ Press ENTER for demo · F for screensaver · ESC to close</span>
+  <span class="bh">✿ ENTER for demo event · F for screensaver · ESC to close</span>
   <div style="display:flex;gap:8px">
     <button class="bb" onclick="openInn()">✉ Send Feedback</button>
     <button class="bb" onclick="toggleSS()">⛶ Screensaver</button>
@@ -785,7 +785,6 @@ const DEMOS=[
 ];
 let di=0;
 function triggerDemo(){DEMOS[di++%DEMOS.length]();}
-function autoDemo(){triggerDemo();setTimeout(autoDemo,3500+Math.random()*1800);}
 
 // ═══════════════════════════════════════════════════════
 //  FEEDBACK
@@ -853,9 +852,8 @@ function loop(){
 }
 
 loop();
-setTimeout(()=>say("rosie","Welcome to\nMaple Creek! ✿\nPress ENTER to start.",3800),1200);
-setTimeout(autoDemo,5200);
-tryWS();
+setTimeout(()=>say("rosie","Welcome to\nMaple Creek! ✿",2800),1200);
+tryWS();   // live WS drives events; ENTER for manual demo
 
 window.DarkclawDaydream={handleEvent,say,triggerDemo};
 </script>
