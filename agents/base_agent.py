@@ -14,6 +14,7 @@ class AgentConfig:
     model: str = "claude-haiku-4-5"
     role: str = "worker"
     fallback_model: str = "ollama/phi3-mini"
+    teacher_model: str = ""          # CoderAgent: Claude assist until local model graduates
 
 @dataclass
 class TaskResult:

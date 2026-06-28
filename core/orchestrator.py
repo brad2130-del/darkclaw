@@ -84,7 +84,7 @@ class Orchestrator:
         Flow: pick agent → inject memory → run → heal-on-failure → teach.
         """
         context = dict(context or {})
-        target_id = agent_id or next(iter(self.agents), None)
+        target_id = agent_id or self._route(task)
         if not target_id:
             raise RuntimeError("No agents registered")
         agent = self.agents[target_id]
@@ -227,16 +227,70 @@ class Orchestrator:
 
         if with_default_agents:
             from agents.worker import WorkerAgent
+            from agents.coder  import CoderAgent
             from agents.base_agent import AgentConfig
+
+            ollama = "ollama/"
+            claude_coder = "claude-sonnet-4-6"
+
+            # Rosie — fastest model, general helper / chat
             orc.register_agent(WorkerAgent(
-                AgentConfig(agent_id="rosie", role="helper", model=model), memory=memory))
+                AgentConfig(agent_id="rosie", role="helper",
+                            model=f"{ollama}phi3.5:latest"), memory=memory))
+
+            # Kit — Book Burrow shopkeeper
             orc.register_agent(WorkerAgent(
-                AgentConfig(agent_id="kit", role="shopkeeper", model=model), memory=memory))
+                AgentConfig(agent_id="kit", role="shopkeeper",
+                            model=f"{ollama}llama3.2:latest"), memory=memory))
+
+            # Sage — system/homelab queries; uses trained weights
+            orc.register_agent(WorkerAgent(
+                AgentConfig(agent_id="sage", role="memory",
+                            model=f"{ollama}openclaw-brain-v2:latest"), memory=memory))
+
+            # Bea — general worker
+            orc.register_agent(WorkerAgent(
+                AgentConfig(agent_id="bea", role="worker",
+                            model=f"{ollama}llama3.1:latest"), memory=memory))
+
+            # Coder — local deepseek + Claude teacher until graduation
+            orc.register_agent(CoderAgent(
+                AgentConfig(agent_id="coder", role="coder",
+                            model=f"{ollama}deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+                            teacher_model=claude_coder), memory=memory))
 
         from agents.guardian import GuardianAgent
         orc.attach_guardian(GuardianAgent(orchestrator=orc, heal_engine=healer))
 
         return orc
+
+    def _route(self, task: str) -> str:
+        """Auto-select the best agent for a task based on keyword signals."""
+        if not self.agents:
+            return None
+
+        words = set(task.lower().split())
+
+        _CODING = {"code", "function", "bug", "script", "python", "javascript",
+                   "error", "fix", "implement", "debug", "refactor", "class",
+                   "import", "syntax", "compile", "exception", "traceback", "def"}
+        _SYSTEM = {"server", "docker", "proxmox", "gpu", "nvidia", "homelab",
+                   "linux", "disk", "cpu", "ram", "memory", "ollama", "container",
+                   "systemd", "service", "log", "process", "network", "tailscale",
+                   "vm", "lxc", "bios", "kernel", "driver", "nvme", "pcie"}
+        _SHOP   = {"book", "shop", "customer", "inventory", "order", "isbn",
+                   "price", "supplier", "burrow", "sale", "invoice", "stock",
+                   "vendor", "receipt", "return", "shelf", "catalog"}
+
+        if words & _CODING and "coder" in self.agents:
+            return "coder"
+        if words & _SYSTEM and "sage" in self.agents:
+            return "sage"
+        if words & _SHOP and "kit" in self.agents:
+            return "kit"
+
+        # Default to Rosie (fastest, general helper)
+        return "rosie" if "rosie" in self.agents else next(iter(self.agents))
 
     @staticmethod
     def _resolve_model() -> str:
