@@ -274,24 +274,63 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13
 
 /* ── CONSOLE (event stream) ──────────────────────────────── */
 .ev-row {
-  display: grid; grid-template-columns: 50px 100px 1fr;
-  padding: 2px 12px;
+  display: grid; grid-template-columns: 62px 100px 1fr;
+  padding: 2px 8px;
   font-family: var(--mono); font-size: 9.5px; line-height: 1.6;
   border-left: 2px solid transparent;
   transition: background .1s;
 }
 .ev-row:hover { background: var(--surface); }
-.ev-row.sev-error   { border-left-color: var(--ember); }
-.ev-row.sev-warn    { border-left-color: var(--gold); }
-.ev-row.sev-success { border-left-color: var(--sage); }
+.ev-row.sev-error   { border-left-color: var(--ember); background: rgba(192,74,24,.04); }
+.ev-row.sev-warn    { border-left-color: var(--gold);  background: rgba(200,144,12,.03); }
+.ev-row.sev-success { border-left-color: var(--sage);  background: rgba(74,136,64,.03); }
 .ev-time  { color: var(--faint); }
-.ev-type  { color: var(--muted); padding: 0 4px; }
+.ev-type  { color: var(--muted); padding: 0 4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .ev-type.heal   { color: var(--gold); }
 .ev-type.memory { color: var(--sky); }
 .ev-type.teach  { color: var(--sage); }
 .ev-type.health { color: var(--sage); }
 .ev-type.error,.ev-type.system { color: var(--ember); }
 .ev-data { color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ── NAV BADGE ───────────────────────────────────────────── */
+.nav-badge {
+  position: absolute; top: 4px; right: 4px;
+  min-width: 13px; height: 13px; border-radius: 6px;
+  background: var(--ember); color: #fff;
+  font-family: var(--mono); font-size: 8px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 2px; line-height: 1; pointer-events: none;
+  animation: fadeUp .18s ease;
+}
+
+/* ── TOPOLOGY TOOLBAR ────────────────────────────────────── */
+.topo-toolbar {
+  position: absolute; top: 8px; right: 10px;
+  display: flex; gap: 4px; z-index: 4;
+}
+.topo-tool-btn {
+  background: rgba(20,16,10,.82); border: 1px solid var(--border);
+  border-radius: 5px; color: var(--muted);
+  font-family: var(--mono); font-size: 8.5px;
+  padding: 3px 7px; cursor: pointer; letter-spacing: .04em;
+  transition: all 150ms ease; backdrop-filter: blur(4px);
+}
+.topo-tool-btn:hover { border-color: var(--gold); color: var(--gold); }
+
+/* ── CONSOLE TOOLBAR ─────────────────────────────────────── */
+.console-toolbar {
+  display: flex; align-items: center; gap: 4px; margin-left: auto;
+}
+.con-tool {
+  background: none; border: 1px solid var(--border);
+  border-radius: 4px; color: var(--muted);
+  font-family: var(--mono); font-size: 8px;
+  padding: 1px 5px; cursor: pointer;
+  transition: all 150ms ease; letter-spacing: .04em;
+}
+.con-tool:hover { border-color: var(--bhi); color: var(--text); }
+.con-tool.on { border-color: var(--sage); color: var(--sage); }
 
 .filter-pill {
   font-family: var(--mono); font-size: 8.5px;
@@ -525,7 +564,7 @@ input[type=checkbox]:hover { border-color: var(--gold); }
   </div>
   <div class="nav-sep"></div>
   <div class="nav-bottom">
-    <button class="nav-btn"    data-sec="console"    onclick="navSwitch('console')"    title="Console">≥</button>
+    <button class="nav-btn"    data-sec="console"    onclick="navSwitch('console')"    title="Console" id="nav-console">≥<span id="console-badge" class="nav-badge" style="display:none">0</span></button>
     <button class="nav-btn"    data-sec="extensions" onclick="navSwitch('extensions')" title="Extensions">⊕</button>
     <button class="nav-btn"    onclick="openSettings()"                                title="Settings">⚙</button>
   </div>
@@ -651,17 +690,23 @@ input[type=checkbox]:hover { border-color: var(--gold); }
 
   <!-- ── Console ────────────────────────────────────── -->
   <div id="sec-console" class="sec-panel" style="display:none">
-    <div class="sec-hdr">
-      Console
-      <div style="display:flex;gap:3px;margin-left:auto">
+    <div class="sec-hdr" style="flex-wrap:wrap;gap:4px">
+      Console <span id="ev-count-badge" class="badge badge-n" style="font-size:8px">0</span>
+      <div style="display:flex;gap:3px">
         <span class="filter-pill on"     data-f="all"    onclick="setFilter('all')">All</span>
         <span class="filter-pill f-heal" data-f="heal"   onclick="setFilter('heal')">Heal</span>
         <span class="filter-pill f-mem"  data-f="memory" onclick="setFilter('memory')">Mem</span>
         <span class="filter-pill f-teach"data-f="teach"  onclick="setFilter('teach')">Teach</span>
         <span class="filter-pill f-err"  data-f="error"  onclick="setFilter('error')">Err</span>
       </div>
+      <div class="console-toolbar">
+        <button class="con-tool on" id="autoscroll-btn" onclick="toggleAutoScroll()" title="Auto-scroll">↓ Auto</button>
+        <button class="con-tool" onclick="exportConsole()" title="Export log">⬇</button>
+        <button class="con-tool" onclick="clearConsole()" title="Clear">✕</button>
+      </div>
     </div>
-    <div id="event-stream" class="sec-scroll" style="padding:3px 0">
+    <div id="event-stream" class="sec-scroll" style="padding:3px 0"
+         onscroll="onConsoleScroll()">
       <div class="hint">Events stream here in real time.</div>
     </div>
   </div>
@@ -694,6 +739,10 @@ input[type=checkbox]:hover { border-color: var(--gold); }
   <div class="topo-wrap">
     <div class="topo-lbl">Live Topology</div>
     <canvas id="topo-canvas"></canvas>
+    <div class="topo-toolbar">
+      <button class="topo-tool-btn" onclick="saveWorkflow()" title="Export agent topology as JSON blueprint">⤢ Save Workflow</button>
+      <button class="topo-tool-btn" onclick="navSwitch('console')" title="Open console">≥ Console</button>
+    </div>
     <div class="fast-banner" id="fast-banner">⚡ FAST MODE — All agents routed to Claude</div>
   </div>
   <div class="chat-wrap">
@@ -946,9 +995,71 @@ function queryMemory(q){const t0=performance.now(),ents=findEntities(q),hints=ge
 // ══════════════════════════════════════════════════════════════
 //  LOCAL EVENT BUS
 // ══════════════════════════════════════════════════════════════
-function localEmit(type,aid,data={}){const ev={type,agent_id:aid,data,timestamp:Date.now(),ts_human:new Date().toTimeString().slice(0,8)};S.events.unshift(ev);if(S.events.length>500)S.events.pop();S.evCount++;renderEvent(ev);updateBar();}
-function renderEvent(ev){const stream=document.getElementById("event-stream");const empty=stream.querySelector(".hint");if(empty)empty.remove();const cat=ev.type.split('.')[0];if(S.filter!=='all'){if(cat!==S.filter&&!(S.filter==='error'&&cat==='system'))return;}const sev=getSeverity(ev.type);const row=document.createElement("div");row.className=`ev-row sev-${sev}`;const dataStr=Object.entries(ev.data||{}).map(([k,v])=>`${k}=${typeof v==='string'?v.slice(0,36):JSON.stringify(v).slice(0,36)}`).join("  ").slice(0,88);row.innerHTML=`<span class="ev-time">${ev.ts_human}</span><span class="ev-type ${cat}">${ev.type}</span><span class="ev-data">${ev.agent_id||''} ${dataStr}</span>`;stream.insertBefore(row,stream.firstChild);while(stream.children.length>200)stream.removeChild(stream.lastChild);}
-function getSeverity(type){if(["health.fail","heal.failed","system.error"].includes(type))return"error";if(["health.warn","heal.triggered","teach.quarantine"].includes(type))return"warn";if(["heal.success","teach.win"].includes(type))return"success";return"info";}
+let _consoleAutoScroll=true, _consoleBadgeCount=0;
+
+function _tsNow(){const d=new Date();return`${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}:${String(d.getSeconds()).padStart(2,'0')}.${String(d.getMilliseconds()).padStart(3,'0').slice(0,2)}`;}
+
+function localEmit(type,aid,data={}){
+  const ev={type,agent_id:aid,data,timestamp:Date.now(),ts_human:_tsNow()};
+  S.events.unshift(ev);if(S.events.length>500)S.events.pop();
+  S.evCount++;renderEvent(ev);updateBar();
+  // Badge on console nav button when console not visible
+  if(S.navSection!=='console'){
+    _consoleBadgeCount++;
+    const b=document.getElementById('console-badge');
+    if(b){b.textContent=_consoleBadgeCount>99?'99+':_consoleBadgeCount;b.style.display='flex';}
+  }
+}
+
+function renderEvent(ev){
+  const stream=document.getElementById("event-stream");
+  const empty=stream.querySelector(".hint");if(empty)empty.remove();
+  const cat=ev.type.split('.')[0];
+  if(S.filter!=='all'){if(cat!==S.filter&&!(S.filter==='error'&&cat==='system'))return;}
+  const sev=getSeverity(ev.type);
+  const row=document.createElement("div");row.className=`ev-row sev-${sev}`;
+  const dataStr=Object.entries(ev.data||{})
+    .filter(([k])=>!['agents','facts'].includes(k))
+    .map(([k,v])=>`${k}=${typeof v==='string'?v.slice(0,32):JSON.stringify(v).slice(0,32)}`)
+    .join(' ').slice(0,96);
+  row.innerHTML=`<span class="ev-time">${ev.ts_human}</span><span class="ev-type ${cat}">${ev.type.replace(cat+'.','')}</span><span class="ev-data">${ev.agent_id||''} ${dataStr}</span>`;
+  stream.insertBefore(row,stream.firstChild);
+  while(stream.children.length>300)stream.removeChild(stream.lastChild);
+  // Update event count badge
+  const cb=document.getElementById('ev-count-badge');if(cb)cb.textContent=S.evCount;
+  if(_consoleAutoScroll)stream.scrollTop=0;
+}
+
+function getSeverity(type){
+  if(["health.fail","heal.failed","system.error"].includes(type))return"error";
+  if(["health.warn","heal.triggered","teach.quarantine"].includes(type))return"warn";
+  if(["heal.success","teach.win"].includes(type))return"success";
+  return"info";
+}
+
+function onConsoleScroll(){
+  const s=document.getElementById("event-stream");
+  // User scrolled away from top (newest) — disable auto-scroll
+  _consoleAutoScroll=s.scrollTop<20;
+  const btn=document.getElementById('autoscroll-btn');
+  if(btn)btn.classList.toggle('on',_consoleAutoScroll);
+}
+function toggleAutoScroll(){
+  _consoleAutoScroll=!_consoleAutoScroll;
+  const btn=document.getElementById('autoscroll-btn');
+  if(btn)btn.classList.toggle('on',_consoleAutoScroll);
+  if(_consoleAutoScroll)document.getElementById("event-stream").scrollTop=0;
+}
+function clearConsole(){
+  document.getElementById("event-stream").innerHTML='<div class="hint">Console cleared.</div>';
+  S.events=[];S.evCount=0;_consoleBadgeCount=0;
+  const cb=document.getElementById('ev-count-badge');if(cb)cb.textContent='0';
+}
+function exportConsole(){
+  const lines=S.events.map(e=>`${e.ts_human} [${e.type}] ${e.agent_id||''} ${JSON.stringify(e.data||{})}`).join('\n');
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([lines],{type:'text/plain'}));
+  a.download=`darkclaw-console-${new Date().toISOString().slice(0,16)}.log`;a.click();
+}
 
 // ══════════════════════════════════════════════════════════════
 //  TOPOLOGY CANVAS
@@ -988,6 +1099,15 @@ function drawTopo(){
     ctx.fillStyle=placeholder?"rgba(70,55,38,0.35)":"rgba(237,229,206,0.93)";ctx.font=`600 ${isOrc?11:10}px Inter,sans-serif`;ctx.textAlign="left";ctx.fillText(a.id,x+12,y+hh/2+4);
     const sdx=x+cw-11,sdy=y+hh/2;ctx.beginPath();ctx.arc(sdx,sdy,3.5,0,2*Math.PI);ctx.fillStyle=err?`rgba(200,74,24,0.9)`:active?`rgba(${r},${g},${b},${breathe})`:ok?"rgba(74,200,74,0.8)":"rgba(52,40,28,0.55)";ctx.fill();if(active){ctx.beginPath();ctx.arc(sdx,sdy,6,0,2*Math.PI);ctx.strokeStyle=`rgba(${r},${g},${b},${breathe*0.45})`;ctx.lineWidth=1;ctx.stroke();}
     const bMid=y+hh+(ch-hh)/2;ctx.fillStyle=`rgba(${r},${g},${b},0.72)`;ctx.font=`500 8.5px Inter,sans-serif`;ctx.textAlign="left";ctx.fillText(a.role,x+10,bMid-5);ctx.fillStyle="rgba(58,45,30,0.85)";ctx.font=`400 7.5px 'JetBrains Mono',monospace`;ctx.fillText((a.model||'').replace('ollama/','').slice(0,22),x+10,bMid+8);
+    // Task counter badge on active nodes (ReAct loop indicator from NVIDIA pattern)
+    const tc=a.tasks_run||a.task_count||0;
+    if(tc>0||active){
+      const badge=active?`×${tc||'…'}`:String(tc);
+      const bx=x+cw-4,by=y+4;
+      ctx.font=`700 7px 'JetBrains Mono',monospace`;ctx.textAlign="right";
+      ctx.fillStyle=active?`rgba(${r},${g},${b},0.9)`:"rgba(70,55,38,0.6)";
+      ctx.fillText(badge,bx,by+7);
+    }
     const portY=y+hh+(ch-hh)/2;[x,x+cw].forEach(portX=>{ctx.beginPath();ctx.arc(portX,portY,4.5,0,2*Math.PI);ctx.fillStyle="#0a0806";ctx.fill();ctx.strokeStyle=`rgba(${r},${g},${b},0.5)`;ctx.lineWidth=1.5;ctx.stroke();});
   });
   if(placeholder){ctx.fillStyle="rgba(72,56,38,0.28)";ctx.font="11px Inter,sans-serif";ctx.textAlign="center";ctx.fillText("Waiting for agents…",W/2,H-14);}
@@ -1076,6 +1196,33 @@ function navSwitch(section){
   document.querySelectorAll(".nav-btn[data-sec]").forEach(b=>b.classList.toggle("on",b.dataset.sec===section));
   document.querySelectorAll(".sec-panel").forEach(p=>p.style.display=p.id===`sec-${section}`?"flex":"none");
   if(section==="models")renderModels();
+  if(section==="console"){
+    _consoleBadgeCount=0;
+    const b=document.getElementById('console-badge');if(b)b.style.display='none';
+  }
+}
+
+// ── Workflow save (ComfyUI blueprint pattern) ───────────────────
+function saveWorkflow(){
+  const agents=Object.values(S.agents);
+  const blueprint={
+    revision:0,
+    name:`darkclaw-workflow-${new Date().toISOString().slice(0,10)}`,
+    created:new Date().toISOString(),
+    nodes:agents.map((a,i)=>({
+      id:i,agent_id:a.id,role:a.role,model:a.model||'',
+      status:a.status,task_count:a.tasks_run||a.task_count||0,
+      personality:S.personalities[a.id]||'',
+      pos:[160+Math.cos(i/agents.length*2*Math.PI)*300,300+Math.sin(i/agents.length*2*Math.PI)*200],
+      size:[140,56],
+    })),
+    facts:S.facts.filter(f=>!f.stale).map(f=>({subject:f.subject,predicate:f.predicate,object:f.object})),
+    version:'1.0',
+  };
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([JSON.stringify(blueprint,null,2)],{type:'application/json'}));
+  a.download=`${blueprint.name}.json`;a.click();
+  localEmit('system.start','ui',{msg:`Workflow exported: ${agents.length} nodes, ${blueprint.facts.length} facts`});
 }
 
 // ══════════════════════════════════════════════════════════════
