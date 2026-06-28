@@ -41,7 +41,7 @@ else:
 
 import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, UploadFile, File
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
 from core.event_bus import bus, emit, EventType
@@ -198,6 +198,87 @@ async def query(body: QueryIn):
     emit(EventType.MEMORY_QUERY, body.agent_id,
          query=body.query[:80], tier=result._classify_tier(), method=result.method)
     return result.to_tool_result()
+
+
+@app.post("/stream")
+async def stream_submit(body: SubmitIn):
+    """
+    Streaming version of /submit — returns SSE token stream.
+    Format: data: {"type": "meta"|"token"|"done"|"error", ...}
+    """
+    import json as _json
+
+    async def generate():
+        try:
+            import litellm
+
+            # Route + pick model
+            target_id = body.agent_id or orc._route(body.task)
+            agent     = orc.agents.get(target_id) or next(iter(orc.agents.values()))
+
+            from core.model_router import router, score_complexity
+            complexity = score_complexity(body.task)
+            model      = router.pick(agent.config.role, body.task, complexity)
+
+            # Build context with memory + docs
+            context = {}
+            if orc.memory:
+                qr = orc.memory.query(body.task, target_id)
+                context["injected_memory"] = qr.to_tool_result()
+                doc_qr = orc.memory.query(body.task, "docs")
+                if doc_qr.confidence > 0.1 and doc_qr.answer != "No memory found.":
+                    context["doc_memory"] = doc_qr.to_tool_result()
+
+            # Build messages
+            sys_parts = []
+            mem_ans = (context.get("injected_memory") or {}).get("answer", "")
+            if mem_ans and mem_ans != "No memory found.":
+                sys_parts.append(f"[Darkclaw Memory]\n{mem_ans}")
+            doc_ans = (context.get("doc_memory") or {}).get("answer", "")
+            if doc_ans and doc_ans != "No memory found.":
+                sys_parts.append(f"[Document Context]\n{doc_ans}")
+
+            messages = []
+            if sys_parts:
+                messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
+            messages.append({"role": "user", "content": body.task})
+
+            # Ollama routing
+            extra = {}
+            if model.startswith("ollama/"):
+                url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
+                if url:
+                    extra["api_base"] = url.rstrip("/")
+
+            # Announce agent + model
+            yield f"data: {_json.dumps({'type':'meta','agent_id':target_id,'model':model})}\n\n"
+
+            # Stream tokens
+            full_text = ""
+            response = litellm.completion(
+                model=model, messages=messages, stream=True, **extra
+            )
+            for chunk in response:
+                delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
+                if delta:
+                    full_text += delta
+                    yield f"data: {_json.dumps({'type':'token','text':delta})}\n\n"
+
+            yield f"data: {_json.dumps({'type':'done','agent_id':target_id})}\n\n"
+
+            # Fire RAG + update router heat
+            if full_text and orc.memory:
+                router.record_use(model)
+                from core.rag_extractor import schedule_rag
+                schedule_rag(body.task, full_text, target_id, orc.memory)
+                emit(EventType.AGENT_TASK_DONE, target_id, task=body.task[:40])
+
+        except Exception as e:
+            yield f"data: {_json.dumps({'type':'error','error':str(e)[:200]})}\n\n"
+
+    return StreamingResponse(generate(), media_type="text/event-stream",
+                             headers={"Cache-Control": "no-cache",
+                                      "X-Accel-Buffering": "no"})
 
 
 @app.post("/submit")

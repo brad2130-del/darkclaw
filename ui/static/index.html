@@ -1350,7 +1350,7 @@ function switchTab(tab) {
 
 // ── Ask Rosie chat ────────────────────────────────────────────
 let _chatBusy = false;
-function askRosie() {
+async function askRosie() {
   if (_chatBusy) return;
   const inp = document.getElementById("chat-input");
   const msg = inp.value.trim();
@@ -1358,7 +1358,7 @@ function askRosie() {
   inp.value = "";
   _chatBusy = true;
 
-  const log = document.getElementById("chat-log");
+  const log    = document.getElementById("chat-log");
   const status = document.getElementById("chat-status");
 
   // User bubble
@@ -1366,35 +1366,76 @@ function askRosie() {
   userEl.style.cssText = "align-self:flex-end;background:var(--synapse);color:#fff;border-radius:6px 6px 2px 6px;padding:6px 10px;font-size:11px;max-width:85%;line-height:1.5;word-break:break-word";
   userEl.textContent = msg;
   log.appendChild(userEl);
-  log.scrollTop = log.scrollHeight;
 
-  // Thinking bubble
-  const thinkEl = document.createElement("div");
-  thinkEl.style.cssText = "align-self:flex-start;background:var(--panel);border:1px solid var(--border);color:var(--muted);border-radius:6px 6px 6px 2px;padding:6px 10px;font-size:11px";
-  thinkEl.textContent = "Rosie is thinking…";
-  log.appendChild(thinkEl);
+  // Agent response bubble (fills in as tokens arrive)
+  const replyEl = document.createElement("div");
+  replyEl.style.cssText = "align-self:flex-start;background:var(--panel);border:1px solid var(--border);border-radius:6px 6px 6px 2px;padding:6px 10px;font-size:11px;max-width:90%;line-height:1.6;word-break:break-word";
+  const labelEl = document.createElement("span");
+  labelEl.style.cssText = "color:var(--rose);font-size:10px;display:block;margin-bottom:3px;font-family:var(--font-mono)";
+  labelEl.textContent = "…";
+  const textEl = document.createElement("span");
+  textEl.style.cssText = "color:var(--muted)";
+  textEl.textContent = "▋";
+  replyEl.appendChild(labelEl);
+  replyEl.appendChild(textEl);
+  log.appendChild(replyEl);
   log.scrollTop = log.scrollHeight;
-  status.textContent = "";
+  status.textContent = "Routing…";
 
-  fetch(`${location.origin}/submit`, {
-    method: "POST",
-    headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({task: msg, agent_id: "rosie"})
-  })
-  .then(r => r.json())
-  .then(data => {
-    const reply = data.result ?? data.output ?? data.message ?? JSON.stringify(data);
-    thinkEl.style.color = "var(--text)";
-    thinkEl.style.borderColor = "var(--mem)";
-    // Prepend Rosie label
-    thinkEl.innerHTML = `<span style="color:var(--rose);font-size:10px;display:block;margin-bottom:3px">Rosie ♥</span>${reply}`;
-    log.scrollTop = log.scrollHeight;
-  })
-  .catch(err => {
-    thinkEl.style.color = "#e06060";
-    thinkEl.textContent = "Error: " + err.message;
-  })
-  .finally(() => { _chatBusy = false; });
+  try {
+    const resp = await fetch(`${location.origin}/stream`, {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({task: msg})
+    });
+
+    const reader  = resp.body.getReader();
+    const decoder = new TextDecoder();
+    let   buf     = "";
+    let   text    = "";
+    let   started = false;
+
+    while (true) {
+      const {done, value} = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, {stream: true});
+
+      // SSE lines may arrive in partial chunks — process complete lines
+      const lines = buf.split("\n");
+      buf = lines.pop();   // last may be incomplete
+
+      for (const line of lines) {
+        if (!line.startsWith("data: ")) continue;
+        let ev;
+        try { ev = JSON.parse(line.slice(6)); } catch { continue; }
+
+        if (ev.type === "meta") {
+          const agentLabel = ev.agent_id || "agent";
+          labelEl.textContent = agentLabel + " ♥";
+          status.textContent  = `${agentLabel} → ${(ev.model||"").replace("ollama/","")}`;
+        } else if (ev.type === "token") {
+          if (!started) { textEl.style.color = "var(--text)"; text = ""; started = true; }
+          text += ev.text;
+          textEl.textContent = text + "▋";
+          log.scrollTop = log.scrollHeight;
+        } else if (ev.type === "done") {
+          textEl.textContent = text;
+          replyEl.style.borderColor = "var(--mem)";
+          status.textContent = `↑ ${ev.agent_id}`;
+        } else if (ev.type === "error") {
+          textEl.style.color = "var(--fault)";
+          textEl.textContent = "Error: " + ev.error;
+          status.textContent = "";
+        }
+      }
+    }
+  } catch(e) {
+    textEl.style.color = "var(--fault)";
+    textEl.textContent = "Connection error: " + e.message;
+    status.textContent = "";
+  } finally {
+    _chatBusy = false;
+  }
 }
 
 function setFilter(f) {
