@@ -834,7 +834,8 @@ document.addEventListener("keydown",e=>{
 // WS
 function tryWS(){
   try{
-    const ws=new WebSocket("ws://localhost:7430/ws");
+    const wsProto=location.protocol==="https:"?"wss:":"ws:";
+    const ws=new WebSocket(`${wsProto}//${location.host}/ws`);
     ws.onopen=()=>say("pip","Connected!\nLive mode! ♥",2000);
     ws.onmessage=e=>{try{const ev=JSON.parse(e.data);handleEvent(ev.type,ev.agent_id,ev.data);}catch(err){}};
     ws.onclose=()=>setTimeout(tryWS,5000);

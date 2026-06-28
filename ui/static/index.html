@@ -677,10 +677,8 @@ body {
   <div class="header-right">
     <div class="conn-indicator">
       <div class="conn-dot" id="conn-dot"></div>
-      <span id="conn-label">Demo mode</span>
+      <span id="conn-label">Connecting…</span>
     </div>
-    <button class="btn-header active" id="btn-demo" onclick="toggleMode()">Demo</button>
-    <button class="btn-header" onclick="loadDemo()">Load Scenario</button>
     <button class="btn-header" onclick="clearAll()">Reset</button>
   </div>
 </header>
@@ -1316,7 +1314,7 @@ function askRosie() {
   log.scrollTop = log.scrollHeight;
   status.textContent = "";
 
-  fetch("http://localhost:7430/submit", {
+  fetch(`${location.origin}/submit`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({task: msg, agent_id: "rosie"})
@@ -1427,7 +1425,8 @@ function dismissEscalation(i) {
 // ══════════════════════════════════════════════════════════════
 
 function connectWS() {
-  const ws = new WebSocket("ws://localhost:7430/ws");
+  const wsProto = location.protocol === "https:" ? "wss:" : "ws:";
+  const ws = new WebSocket(`${wsProto}//${location.host}/ws`);
   state.ws = ws;
 
   ws.onopen = () => {
