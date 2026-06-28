@@ -9,29 +9,29 @@
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════
-   DESIGN TOKENS
-   Void-black foundation, synapse-green health signal,
-   amber for healing, purple for memory.
+   DESIGN TOKENS — Wind Waker ocean palette
+   Deep ocean foundation, seafoam health signal,
+   gold for healing, sky teal for memory.
    Space Grotesk display + JetBrains Mono for data.
 ═══════════════════════════════════════════════════ */
 :root {
-  --void:      #0d0a08;
-  --deep:      #110e0b;
-  --panel:     #181210;
-  --surface:   #1e1714;
-  --border:    #2e2018;
-  --border-hi: #3e2e22;
-  --text:      #e8d8c0;
-  --muted:     #806050;
-  --faint:     #5a4030;
+  --void:      #06101a;   /* abyss — deepest ocean bg */
+  --deep:      #0a1e2e;   /* deep navy sidebar */
+  --panel:     #0d3347;   /* ocean panel surface */
+  --surface:   #0e3d58;   /* raised panel card */
+  --border:    #1a4d6a;   /* subtle teal border */
+  --border-hi: #1f6080;   /* brighter teal border */
+  --text:      #ddeef5;   /* seafoam-white text */
+  --muted:     #7ab8cc;   /* muted ocean teal */
+  --faint:     #2a6a80;   /* faint teal */
 
-  --rose:      #e89890;   /* Rosie / primary brand */
-  --synapse:   #68d898;   /* health, active, success */
-  --amber:     #f0c060;   /* healing, warning, in-progress */
-  --fault:     #e06868;   /* failure, error, critical */
-  --data:      #78a8e8;   /* data flow, memory writes */
-  --mem:       #b890e0;   /* memory layer, graph edges */
-  --teach:     #70c8b8;   /* teach engine, learning */
+  --rose:      #e05a3a;   /* coral sunset — Rosie / primary brand */
+  --synapse:   #2ec4a0;   /* seafoam — health, active, success */
+  --amber:     #f0c040;   /* Wind Waker gold — healing, warning */
+  --fault:     #e05a3a;   /* coral — failure, error, critical */
+  --data:      #2eb8d4;   /* light ocean shimmer — data flow */
+  --mem:       #1a7a9e;   /* sky teal — memory layer, graph edges */
+  --teach:     #a8d8c8;   /* seafoam light — teach engine */
 
   --font-display: "Space Grotesk", system-ui, sans-serif;
   --font-mono:    "JetBrains Mono", ui-monospace, monospace;
@@ -76,7 +76,7 @@ body {
   gap: 20px;
   padding: 0 20px;
   border-bottom: 1px solid var(--border);
-  background: linear-gradient(90deg, #1a100c 0%, var(--deep) 40%, #100e12 100%);
+  background: linear-gradient(90deg, #050e18 0%, var(--deep) 40%, #071420 100%);
   z-index: 10;
 }
 
@@ -133,16 +133,16 @@ body {
   width: 7px; height: 7px;
   border-radius: 50%;
   background: var(--synapse);
-  box-shadow: 0 0 0 0 rgba(104,216,152,0.4);
+  box-shadow: 0 0 0 0 rgba(46,196,160,0.4);
   animation: pulse-dot 2.5s infinite;
 }
 .conn-dot.offline { background: var(--fault); animation: none; }
 .conn-dot.healing { background: var(--amber); }
 
 @keyframes pulse-dot {
-  0%  { box-shadow: 0 0 0 0 rgba(104,216,152,0.4); }
-  70% { box-shadow: 0 0 0 5px rgba(104,216,152,0); }
-  100%{ box-shadow: 0 0 0 0 rgba(104,216,152,0); }
+  0%  { box-shadow: 0 0 0 0 rgba(46,196,160,0.4); }
+  70% { box-shadow: 0 0 0 5px rgba(46,196,160,0); }
+  100%{ box-shadow: 0 0 0 0 rgba(46,196,160,0); }
 }
 
 .btn-header {
@@ -428,7 +428,7 @@ body {
   border-bottom: 2px solid transparent;
   transition: all 0.15s;
 }
-.panel-tab.active { color: var(--text); border-bottom-color: var(--rose); }
+.panel-tab.active { color: var(--text); border-bottom-color: var(--amber); }
 .panel-tab:hover:not(.active) { color: var(--text); }
 
 .panel-body { flex: 1; overflow-y: auto; }
@@ -664,10 +664,10 @@ body {
     <div class="logo-icon">
       <svg viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
         <!-- Claw mark — 3 curved lines converging -->
-        <path d="M14 4 C10 8, 6 12, 8 20" stroke="#e89890" stroke-width="2" stroke-linecap="round" fill="none"/>
-        <path d="M14 4 C14 10, 14 14, 14 22" stroke="#e89890" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-        <path d="M14 4 C18 8, 22 12, 20 20" stroke="#e89890" stroke-width="2" stroke-linecap="round" fill="none"/>
-        <circle cx="14" cy="4" r="2.5" fill="#e89890"/>
+        <path d="M14 4 C10 8, 6 12, 8 20" stroke="#2eb8d4" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <path d="M14 4 C14 10, 14 14, 14 22" stroke="#f0c040" stroke-width="2.5" stroke-linecap="round" fill="none"/>
+        <path d="M14 4 C18 8, 22 12, 20 20" stroke="#2eb8d4" stroke-width="2" stroke-linecap="round" fill="none"/>
+        <circle cx="14" cy="4" r="2.5" fill="#f0c040"/>
       </svg>
     </div>
     <div class="logo-text">Dark<span>Claw</span></div>
@@ -781,7 +781,7 @@ body {
         <textarea id="chat-input" placeholder="Ask Rosie…"
           style="flex:1;resize:none;height:52px;background:var(--panel);border:1px solid var(--border);border-radius:4px;color:var(--text);font-family:var(--font-mono);font-size:11px;padding:7px 9px;outline:none;line-height:1.5"
           onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();askRosie();}"></textarea>
-        <button onclick="askRosie()" style="padding:8px 12px;background:var(--synapse);border:none;border-radius:4px;color:#fff;font-family:var(--font-mono);font-size:10px;cursor:pointer;white-space:nowrap;align-self:stretch">Send ♥</button>
+        <button onclick="askRosie()" style="padding:8px 12px;background:var(--amber);border:none;border-radius:4px;color:var(--deep);font-family:var(--font-mono);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap;align-self:stretch">Send ♥</button>
       </div>
       <div id="chat-status" style="font-size:10px;color:var(--muted);min-height:14px"></div>
     </div>
@@ -1556,6 +1556,7 @@ function mainLoop() {
 setFilter("all");
 renderAll();
 requestAnimationFrame(mainLoop);
+connectWS();
 
 // Keyboard shortcuts
 document.addEventListener("keydown", e=>{
