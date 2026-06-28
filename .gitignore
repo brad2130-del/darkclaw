@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+*.egg-info/
+dist/
+build/
+
+# Secrets — never commit
+.env
+.env.*
+secrets.json
+*.pem
+*.key
+
+# Database (persisted data — not source)
+data/*.db
+data/*.db-journal
+data/*.db-wal
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs / temp
+*.log
+/tmp/
+
+# Stale extracted copy — not source of truth
+darkclaw_project/
