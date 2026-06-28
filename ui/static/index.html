@@ -858,7 +858,7 @@ body {
 <footer class="statusbar">
   <div class="sb-item">Darkclaw v1.0</div>
   <div class="sb-sep">·</div>
-  <div class="sb-item">Mode: <span class="sb-val" id="sb-mode">demo</span></div>
+  <div class="sb-item">Mode: <span class="sb-val" id="sb-mode">live</span></div>
   <div class="sb-sep">·</div>
   <div class="sb-item">Events: <span class="sb-val" id="sb-events">0</span></div>
   <div class="sb-sep">·</div>
@@ -891,7 +891,7 @@ const state = {
   eventCount: 0,
   startTime: Date.now(),
   ws: null,
-  demoMode: true,
+  demoMode: false,
 };
 
 const ALIASES = {
@@ -1540,18 +1540,6 @@ function clearAll() {
   renderAll();
 }
 
-function toggleMode() {
-  const btn=document.getElementById("btn-demo");
-  state.demoMode=!state.demoMode;
-  if(state.demoMode) {
-    btn.classList.add("active");
-    document.getElementById("sb-mode").textContent="demo";
-  } else {
-    btn.classList.remove("active");
-    document.getElementById("sb-mode").textContent="connecting…";
-    connectWS();
-  }
-}
 
 // ══════════════════════════════════════════════════════════════
 //  MAIN LOOP
