@@ -35,6 +35,7 @@ class FailureType(str, Enum):
     ROUTING_MISS     = "ROUTING_MISS"
     CONTEXT_OVERFLOW = "CONTEXT_OVERFLOW"
     MEMORY_MISS      = "MEMORY_MISS"
+    RESOURCE_ERROR   = "RESOURCE_ERROR"   # OS/socket errors: ENOFILE, ECONNREFUSED, etc.
     UNKNOWN          = "UNKNOWN"
 
 
@@ -98,6 +99,13 @@ def classify_failure(error: Exception, context: dict) -> FailureType:
     if context.get("wrong_model_detected"):
         return FailureType.ROUTING_MISS
 
+    # OS-level and network resource errors — reroute to fallback model rather than escalate
+    if isinstance(error, OSError) or \
+       "errno" in msg or "too many open files" in msg or \
+       "connection refused" in msg or "connection reset" in msg or \
+       "broken pipe" in msg or "network" in msg and "error" in msg:
+        return FailureType.RESOURCE_ERROR
+
     return FailureType.UNKNOWN
 
 
@@ -110,6 +118,7 @@ STRATEGY_MAP: Dict[FailureType, List[RepairStrategy]] = {
     FailureType.ROUTING_MISS:     [RepairStrategy.REROUTE,            RepairStrategy.INJECT_CORRECTION,  RepairStrategy.ESCALATE],
     FailureType.CONTEXT_OVERFLOW: [RepairStrategy.COMPACT_CONTEXT,    RepairStrategy.REFRESH_MEMORY,     RepairStrategy.ESCALATE],
     FailureType.MEMORY_MISS:      [RepairStrategy.FORCE_MEMORY_QUERY, RepairStrategy.REFRESH_MEMORY,     RepairStrategy.ESCALATE],
+    FailureType.RESOURCE_ERROR:   [RepairStrategy.REROUTE,            RepairStrategy.RETRY_WITH_BACKOFF, RepairStrategy.ESCALATE],
     FailureType.UNKNOWN:          [RepairStrategy.RETRY_WITH_BACKOFF, RepairStrategy.ESCALATE,           RepairStrategy.QUARANTINE],
 }
 

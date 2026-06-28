@@ -280,6 +280,10 @@ class Orchestrator:
                             model=f"{ollama}deepseek-coder-v2:16b-lite-instruct-q4_K_M",
                             teacher_model=claude_coder), memory=memory))
 
+            # Fallback — always Claude Haiku; promoted when chain degrades
+            from agents.fallback_agent import FallbackAgent
+            orc.register_agent(FallbackAgent(memory=memory))
+
         from agents.guardian import GuardianAgent
         orc.attach_guardian(GuardianAgent(orchestrator=orc, heal_engine=healer))
 
@@ -303,15 +307,24 @@ class Orchestrator:
                    "price", "supplier", "burrow", "sale", "invoice", "stock",
                    "vendor", "receipt", "return", "shelf", "catalog"}
 
-        if words & _CODING and "coder" in self.agents:
-            return "coder"
-        if words & _SYSTEM and "sage" in self.agents:
-            return "sage"
-        if words & _SHOP and "kit" in self.agents:
-            return "kit"
+        def _ok(aid):
+            a = self.agents.get(aid)
+            return a and a.status != "error"
 
-        # Default to Rosie (fastest, general helper)
-        return "rosie" if "rosie" in self.agents else next(iter(self.agents))
+        if words & _CODING:
+            if _ok("coder"): return "coder"
+            if "fallback" in self.agents: return "fallback"
+        if words & _SYSTEM:
+            if _ok("sage"): return "sage"
+        if words & _SHOP:
+            if _ok("kit"): return "kit"
+
+        # Default to Rosie; if she's errored too, promote fallback
+        if _ok("rosie"):
+            return "rosie"
+        if "fallback" in self.agents:
+            return "fallback"
+        return next(iter(self.agents))
 
     @staticmethod
     def _resolve_model() -> str:

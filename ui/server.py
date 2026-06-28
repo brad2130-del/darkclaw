@@ -200,6 +200,141 @@ async def query(body: QueryIn):
     return result.to_tool_result()
 
 
+# ── Slash-command handler ─────────────────────────────────────────────────
+
+async def _run_command(cmd: str) -> str:
+    """
+    Process /slash commands typed in the Rosie chat box.
+    Returns a plain text response string (streamed token-by-token by /stream).
+
+    Commands:
+      /fast    — switch all agents to Claude exclusively (haiku/sonnet by complexity)
+      /return  — return to local Ollama routing
+      /plan    — ask Claude Sonnet to analyse current system health and produce a repair plan
+    """
+    import json as _json
+    from core.model_router import (enable_fast_mode, disable_fast_mode, is_fast_mode,
+                                   CLAUDE_FAST, CLAUDE_SMART, OPENCLAW_PI5_URL, OPENCLAW_PI5_MODEL)
+
+    name = cmd.strip().lstrip("/").split()[0].lower()
+
+    if name == "fast":
+        enable_fast_mode()
+        emit(EventType.SYSTEM_START, "darkclaw", msg="fast-mode-on")
+        return (
+            "⚡ FAST MODE ON\n\n"
+            f"All agents are now routed exclusively to Claude.\n"
+            f"  Simple queries  → {CLAUDE_FAST}\n"
+            f"  Complex tasks   → {CLAUDE_SMART}\n\n"
+            "Claude has full visibility: memory context, uploaded docs, heal history,\n"
+            "and agent state are all injected before every call.\n\n"
+            "Type /return to restore local Ollama routing.\n"
+            "Type /plan  to get a Claude-generated repair plan for the current system."
+        )
+
+    if name == "return":
+        disable_fast_mode()
+        emit(EventType.SYSTEM_START, "darkclaw", msg="fast-mode-off")
+        pi5_note = f"\n  Pi5 offload → {OPENCLAW_PI5_MODEL} at {OPENCLAW_PI5_URL}" if OPENCLAW_PI5_URL else ""
+        return (
+            "🌿 LOCAL MODE RESTORED\n\n"
+            "Routing returned to Ollama / P100:\n"
+            "  Rosie, Kit, Bea  → llama3.2 (CPU)\n"
+            "  Sage             → openclaw-brain-v2 (GPU)\n"
+            "  Coder            → deepseek-coder 16B (GPU)" + pi5_note + "\n\n"
+            "Claude remains available as Coder's teacher and via /fast."
+        )
+
+    if name == "plan":
+        return await _generate_plan()
+
+    return (
+        f"Unknown command: /{name}\n\n"
+        "Available commands:\n"
+        "  /fast    — switch to Claude-exclusive mode\n"
+        "  /return  — restore local Ollama routing\n"
+        "  /plan    — Claude analyses system health and proposes repairs"
+    )
+
+
+async def _generate_plan() -> str:
+    """
+    Gather system health snapshot and ask Claude Sonnet for a repair plan.
+    This is what /plan runs — Claude sees everything: agents, heals, teach stats,
+    escalation queue, memory size, and recent failure types.
+    """
+    import json as _json, litellm
+
+    health = orc.health()
+
+    # Flatten agent states
+    agents_snap = {
+        aid: {
+            "status":     a.get("status"),
+            "error_rate": a.get("error_rate"),
+            "tasks":      a.get("tasks_run", a.get("tasks")),
+            "model":      a.get("model"),
+        }
+        for aid, a in health.get("agents", {}).items()
+    }
+
+    # Pull recent failures from heal engine history
+    healer = getattr(orc, "healer", None)
+    recent_failures, escalated = [], []
+    if healer:
+        for f in getattr(healer, "_history", [])[-12:]:
+            recent_failures.append({
+                "agent":      f.agent_id,
+                "type":       str(f.failure_type),
+                "error":      f.error_msg[:120],
+                "resolved":   f.resolved,
+                "resolution": f.resolution,
+            })
+        for f in getattr(healer, "_escalation_queue", [])[-5:]:
+            escalated.append({"agent": f.agent_id, "error": f.error_msg[:80]})
+
+    report = {
+        "agents":           agents_snap,
+        "heal":             health.get("heal", {}),
+        "teach":            health.get("teach", {}),
+        "memory_facts":     health.get("memory", {}).get("facts", "?"),
+        "recent_failures":  recent_failures,
+        "escalated":        escalated,
+    }
+
+    system_prompt = (
+        "You are Darkclaw's autonomous repair planner. You have full visibility into "
+        "the system and its agents. When given a health report, produce a numbered "
+        "action plan — each step must say WHAT to fix, WHY it's broken, and HOW to fix it "
+        "(name the file, method, or config key). Be concise and direct. No preamble.\n\n"
+        "Agent roster: Rosie (helper/phi3.5), Kit (shopkeeper/llama3.2), "
+        "Sage (memory/openclaw-brain-v2 GPU), Bea (worker/llama3.1), "
+        "Coder (deepseek-coder 16B GPU + Claude teacher), Pip (guardian/watchdog), "
+        "Fallback (claude-haiku-4-5, always-on cloud safety net).\n"
+        "Stack: FastAPI + asyncio, Ollama P100 16GB, SQLite memory, litellm routing."
+    )
+
+    try:
+        response = litellm.completion(
+            model="claude-sonnet-4-6",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content":
+                 f"Health report:\n```json\n{_json.dumps(report, indent=2)}\n```\n\n"
+                 "Analyse this and give me a numbered repair plan. "
+                 "If everything looks healthy, say so clearly."},
+            ],
+            timeout=45,
+        )
+        plan = response.choices[0].message.content or "No plan returned."
+        return f"📋 DARKCLAW REPAIR PLAN\n\n{plan}"
+    except Exception as e:
+        return (
+            f"⚠️  Plan generation failed ({e})\n\n"
+            f"Raw health snapshot:\n```json\n{_json.dumps(report, indent=2)}\n```"
+        )
+
+
 @app.post("/stream")
 async def stream_submit(body: SubmitIn):
     """
@@ -211,6 +346,17 @@ async def stream_submit(body: SubmitIn):
     async def generate():
         try:
             import litellm
+
+            # ── Slash-command interception ───────────────────────────
+            if body.task.strip().startswith("/"):
+                yield f"data: {_json.dumps({'type':'meta','agent_id':'darkclaw','model':'system'})}\n\n"
+                resp = await _run_command(body.task.strip())
+                for word in resp.split(" "):
+                    yield f"data: {_json.dumps({'type':'token','text':word+' '})}\n\n"
+                    await asyncio.sleep(0.008)
+                yield f"data: {_json.dumps({'type':'done','agent_id':'darkclaw'})}\n\n"
+                emit(EventType.AGENT_TASK_DONE, "darkclaw", task=body.task[:40])
+                return
 
             # Route + pick model
             target_id = body.agent_id or orc._route(body.task)
@@ -255,16 +401,23 @@ async def stream_submit(body: SubmitIn):
             # Announce agent + model
             yield f"data: {_json.dumps({'type':'meta','agent_id':target_id,'model':model})}\n\n"
 
-            # Stream tokens
+            # Stream tokens — always close the response to release the Ollama socket,
+            # even if the SSE client disconnects or an exception is thrown mid-stream.
             full_text = ""
             response = litellm.completion(
                 model=model, messages=messages, stream=True, **extra
             )
-            for chunk in response:
-                delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
-                if delta:
-                    full_text += delta
-                    yield f"data: {_json.dumps({'type':'token','text':delta})}\n\n"
+            try:
+                for chunk in response:
+                    delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
+                    if delta:
+                        full_text += delta
+                        yield f"data: {_json.dumps({'type':'token','text':delta})}\n\n"
+            finally:
+                try:
+                    response.close()
+                except Exception:
+                    pass
 
             yield f"data: {_json.dumps({'type':'done','agent_id':target_id})}\n\n"
 
@@ -273,7 +426,8 @@ async def stream_submit(body: SubmitIn):
                 router.record_use(model)
                 from core.rag_extractor import schedule_rag
                 schedule_rag(body.task, full_text, target_id, orc.memory)
-                emit(EventType.AGENT_TASK_DONE, target_id, task=body.task[:40])
+                emit(EventType.AGENT_TASK_DONE, target_id,
+                     task=body.task[:40], model=model)
 
         except Exception as e:
             yield f"data: {_json.dumps({'type':'error','error':str(e)[:200]})}\n\n"

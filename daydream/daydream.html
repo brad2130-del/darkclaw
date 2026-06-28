@@ -3,411 +3,862 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Maple Creek Woodland Hotel — Darkclaw</title>
+<title>Maple Creek — The Great Deku Tree</title>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{
-  background:#1A1008;
-  display:flex;flex-direction:column;
-  align-items:center;justify-content:center;
-  min-height:100vh;
-  font-family:Georgia,'Times New Roman',serif;
+  background:#080C08;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;font-family:Georgia,'Times New Roman',serif;
 }
-#wrap{position:relative;box-shadow:0 8px 48px rgba(0,0,0,.7);border:3px solid #6B4C2E}
+#wrap{position:relative;box-shadow:0 12px 60px rgba(0,0,0,.9)}
 canvas{
   display:block;
-  width:min(calc(100vw - 16px),1100px);
-  aspect-ratio:1100/680;
+  width:min(calc(100vw - 12px),1100px);
+  aspect-ratio:1100/780;
   image-rendering:auto;
 }
 #bar{
   display:flex;align-items:center;justify-content:space-between;
-  width:min(calc(100vw - 16px),1100px);
-  padding:6px 12px;background:#120C04;border-top:2px solid #4A3020;
+  width:min(calc(100vw - 12px),1100px);
+  padding:5px 12px;background:#06080605;border-top:1px solid #2A3A1A;
 }
-.bh{font-size:11px;color:#8B7355}
-.bb{
-  font-size:11px;color:#C4A882;background:none;
-  border:1px solid #6B4C2E;padding:4px 14px;cursor:pointer;
-  font-family:Georgia,serif;border-radius:3px;transition:all .15s;
+.bh{font-size:10px;color:#6B8050}
+.bb{font-size:10px;color:#A0C070;background:none;border:1px solid #3A5020;
+    padding:3px 12px;cursor:pointer;font-family:Georgia,serif;border-radius:3px;transition:all .15s}
+.bb:hover{color:#C0E090;border-color:#7AB040}
+
+/* ── Deku Tree Chat Overlay ─────────────────────────────── */
+#chat-toggle{
+  position:fixed;bottom:54px;right:calc((100vw - min(calc(100vw - 12px),1100px))/2 + 8px);
+  z-index:50;
+  background:#1A2A10;border:1px solid #3A5A20;border-radius:50%;
+  width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  cursor:pointer;font-size:18px;transition:all .2s;
+  box-shadow:0 4px 16px rgba(0,0,0,.6);
 }
-.bb:hover{color:#F0D090;border-color:#C4A882}
+#chat-toggle:hover{background:#2A3A18;border-color:#5A8A30}
+#chat-toggle.open{background:#5A8A30;border-color:#7AB040}
+
+#chat-panel{
+  position:fixed;
+  bottom:100px;
+  right:calc((100vw - min(calc(100vw - 12px),1100px))/2 + 8px);
+  width:320px;
+  max-height:420px;
+  z-index:49;
+  background:rgba(8,14,6,.95);
+  border:1px solid #2A4A18;
+  border-radius:10px;
+  display:flex;flex-direction:column;
+  box-shadow:0 8px 40px rgba(0,0,0,.8);
+  transform:translateY(8px);opacity:0;pointer-events:none;
+  transition:all .22s ease;
+  backdrop-filter:blur(6px);
+}
+#chat-panel.open{transform:translateY(0);opacity:1;pointer-events:all}
+
+#chat-panel-hdr{
+  padding:8px 12px;
+  border-bottom:1px solid #1A3010;
+  display:flex;align-items:center;gap:8px;
+  font-family:Georgia,serif;font-size:11px;color:#7AB050;
+  flex-shrink:0;
+}
+#chat-panel-hdr span{flex:1}
+#chat-clear{background:none;border:none;color:#3A5020;cursor:pointer;font-size:12px;padding:0 4px;}
+#chat-clear:hover{color:#A0C060}
+
+#chat-log{
+  flex:1;overflow-y:auto;padding:10px 12px;
+  display:flex;flex-direction:column;gap:7px;
+  min-height:80px;max-height:270px;
+  scrollbar-width:thin;scrollbar-color:#2A4A18 transparent;
+}
+
+.cmsg-user{
+  align-self:flex-end;
+  background:#1E3010;border:1px solid #2E4A18;
+  border-radius:8px 8px 2px 8px;
+  padding:6px 10px;font-size:11px;font-family:Georgia,serif;
+  color:#C0D8A0;max-width:86%;word-break:break-word;line-height:1.5;
+}
+.cmsg-agent{
+  align-self:flex-start;
+  background:#0E180A;border:1px solid #1A2E10;
+  border-radius:8px 8px 8px 2px;
+  padding:6px 10px;font-size:11px;font-family:Georgia,serif;
+  color:#A0C080;max-width:92%;word-break:break-word;line-height:1.55;
+}
+.cmsg-lbl{font-size:9px;color:#4A7030;margin-bottom:2px;font-family:Georgia,serif;}
+
+#chat-input-row{
+  display:flex;gap:5px;padding:8px 10px;
+  border-top:1px solid #1A3010;flex-shrink:0;
+}
+#deku-input{
+  flex:1;background:#0E180A;border:1px solid #1E3010;
+  border-radius:5px;color:#C0D8A0;
+  font-family:Georgia,serif;font-size:11px;
+  padding:6px 9px;outline:none;resize:none;height:42px;line-height:1.4;
+  transition:border-color .15s;
+}
+#deku-input:focus{border-color:#3A6020}
+#deku-input::placeholder{color:#2E4A20}
+#deku-send{
+  background:#2A4A18;border:1px solid #3A6020;
+  border-radius:5px;color:#90C060;
+  font-family:Georgia,serif;font-size:10px;
+  padding:0 12px;cursor:pointer;transition:all .15s;flex-shrink:0;
+}
+#deku-send:hover{background:#3A5A22;color:#B0E070}
+#deku-send:disabled{opacity:.4;cursor:default}
+#chat-hint{padding:3px 10px 6px;font-family:Georgia,serif;font-size:9px;color:#2A4A18;min-height:14px}
 </style>
 </head>
 <body>
-<div id="wrap"><canvas id="c" width="1100" height="680"></canvas></div>
+<div id="wrap"><canvas id="c" width="1100" height="780"></canvas></div>
 <div id="bar">
-  <span class="bh">✿ Maple Creek Woodland Hotel &nbsp;·&nbsp; ENTER for demo &nbsp;·&nbsp; F for fullscreen</span>
+  <span class="bh">✦ Maple Creek — The Great Deku Tree &nbsp;·&nbsp; ENTER demo &nbsp;·&nbsp; F fullscreen</span>
   <div style="display:flex;gap:8px">
     <button class="bb" onclick="triggerDemo()">▶ Demo</button>
-    <button class="bb" onclick="toggleSS()">⛶ Fullscreen</button>
+    <button class="bb" onclick="toggleSS()">⛶</button>
+  </div>
+</div>
+
+<!-- Chat toggle button -->
+<button id="chat-toggle" onclick="toggleChat()" title="Chat with the Great Deku Tree">💬</button>
+
+<!-- Chat panel -->
+<div id="chat-panel">
+  <div id="chat-panel-hdr">
+    <span>✦ Speak to the Tree</span>
+    <button id="chat-clear" onclick="clearChat()" title="Clear">✕</button>
+  </div>
+  <div id="chat-log">
+    <div class="cmsg-agent">
+      <div class="cmsg-lbl">The Great Deku Tree</div>
+      The tree hears you, traveler. Ask anything, or type /fast · /plan · /return.
+    </div>
+  </div>
+  <div id="chat-hint"></div>
+  <div id="chat-input-row">
+    <textarea id="deku-input" placeholder="Ask the tree…"
+      onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();dekuSend();}"></textarea>
+    <button id="deku-send" onclick="dekuSend()">Send</button>
   </div>
 </div>
 <script>
 // ═══════════════════════════════════════════════════════════════
-//  MAPLE CREEK WOODLAND HOTEL  –  Darkclaw live UI  (v2)
+//  MAPLE CREEK — THE GREAT DEKU TREE
+//  Cross-section view: 5 carved chambers inside an ancient tree.
 //
-//  Layout:
-//    ┌──── LIBRARY ───┬──────── LOBBY ─────────┬── KITCHEN ──┐
-//    │  Kit  Sage     │  Rosie (front desk)     │  Bea  Coder │
-//    ├────────────────┴────────────────────────┴─────────────┤
-//    │              COMMON HALL  (Pip wanders)                │
-//    └────────────────────────────────────────────────────────┘
+//  Floor layout (top → bottom):
+//    SKY / CANOPY      y:  0 –  70  (exterior: stars, moon, foliage)
+//    THE STUDY         y: 70 – 200  Coder   — magical scripts & star charts
+//    THE LOBBY         y:200 – 320  Rosie   — grand reception desk, flowers
+//    THE LIBRARY       y:320 – 440  Kit+Sage— curved bookshelves, orb light
+//    THE KITCHEN       y:440 – 570  Bea     — hearth, hanging herbs, cauldron
+//    THE ROOT CHAMBER  y:570 – 700  Pip     — mossy stone, mushroom lanterns
+//    GROUND / ROOTS    y:700 – 780  (soil, roots spreading outward)
 //
-//  All drawing on canvas – no DOM overlays – crisp at any size.
+//  BRANCH DECK  (right exterior, y≈100): Owl mail carrier.
+//  Owl animates + hoots when a document is ingested.
 // ═══════════════════════════════════════════════════════════════
 
-const c   = document.getElementById('c');
-const ctx = c.getContext('2d');
-const W = 1100, H = 680;
-const HUD_H  = 36;
-const ROOM_H = 420;
-const HALL_Y = HUD_H + ROOM_H;
-const HALL_H = H - HALL_Y;
+const cv  = document.getElementById('c');
+const ctx = cv.getContext('2d');
+const W = 1100, H = 780;
 
-// ── Palette ──────────────────────────────────────────────────
-const P = {
-  libFloor:'#9B7855', lobFloor:'#C8AC88', kitFloor:'#8B6840',
-  hallFloor:'#7A5C38',
-  darkWood:'#3D2010', medWood:'#7B4A20', lightWood:'#C4A060',
-  cream:'#FFF8F0', parchment:'#F5E6C8',
-  forestGreen:'#3A6B2A', leafGreen:'#5A9B3A',
-  gold:'#D4A820', leather:'#8B5A2B',
+// Tree trunk interior bounds
+const TX1 = 275, TX2 = 825, TMID = 550;
+
+// Floor Y definitions
+const F = {
+  sky:    { y:  0, h:  70 },
+  study:  { y: 70, h: 130 },   // Coder
+  lobby:  { y:200, h: 120 },   // Rosie
+  lib:    { y:320, h: 120 },   // Kit + Sage
+  kit:    { y:440, h: 130 },   // Bea
+  roots:  { y:570, h: 130 },   // Pip
+  ground: { y:700, h:  80 },
 };
 
-// ── Room bounds ───────────────────────────────────────────────
-const LIB = {x:0,   w:340, y:HUD_H, h:ROOM_H};
-const LOB = {x:340, w:420, y:HUD_H, h:ROOM_H};
-const KIT = {x:760, w:340, y:HUD_H, h:ROOM_H};
-const HALL= {x:0,   w:W,   y:HALL_Y,h:HALL_H};
+// Branch deck (right exterior)
+const DECK_Y = 108, DECK_X1 = TX2, DECK_X2 = TX2 + 210;
+const OWL_X = DECK_X2 - 35, OWL_Y = DECK_Y - 12;
 
 let frame = 0;
 const particles = [];
-let dlg = {who:'',full:'',idx:0,timer:0};
+let dlg = { who:'', full:'', idx:0, timer:0 };
 
-// ── Agent colors & home positions ────────────────────────────
-const COLORS = {rosie:'#E8735A',kit:'#5B8DC8',sage:'#9B7BC8',
-                bea:'#D4A020',coder:'#4A8A5A',pip:'#A08060'};
-const NAMES  = {rosie:'Rosie',kit:'Kit',sage:'Sage',
-                bea:'Bea',coder:'Coder',pip:'Pip'};
-function homeOf(id){
-  return {
-    rosie:{x:540, y:HUD_H+280},
-    kit:  {x:130, y:HUD_H+310},
-    sage: {x:240, y:HUD_H+270},
-    bea:  {x:880, y:HUD_H+300},
-    coder:{x:1010,y:HUD_H+340},
-    pip:  {x:550, y:HALL_Y+90},
-  }[id]||{x:540,y:400};
-}
+// Owl state
+const owl = { flap:0, hoot:null, hootTimer:0 };
+
+// Pre-seeded random stars (fixed positions, no flicker)
+const STARS = Array.from({length:90},()=>({
+  x: Math.random()*W, y: Math.random()*180,
+  r: Math.random()*1.4+0.4,
+  tw: Math.random()*Math.PI*2,
+}));
+// Pre-seeded fireflies (inside tree, drift upward)
+const FLIES = Array.from({length:18},()=>({
+  x: TX1+30+Math.random()*(TX2-TX1-60),
+  y: 100+Math.random()*580,
+  vy: -(0.15+Math.random()*0.25),
+  ph: Math.random()*Math.PI*2,
+}));
+// Note rotations for bulletin board (pre-seeded)
+const NROT = [0.03,-0.04,0.02,-0.05,0.01];
+
+// ── Agent colors / names ─────────────────────────────────────
+const COLORS={rosie:'#E8735A',kit:'#5B8DC8',sage:'#9B7BC8',
+               bea:'#D4A020',coder:'#4A8A5A',pip:'#A08060'};
+const NAMES ={rosie:'Rosie',kit:'Kit',sage:'Sage',
+               bea:'Bea',coder:'Coder',pip:'Pip'};
+
+function homeOf(id){return({
+  rosie:{x:520,y:275}, kit:{x:390,y:390}, sage:{x:680,y:375},
+  bea:{x:510,y:518},   coder:{x:550,y:148}, pip:{x:530,y:644},
+})[id]||{x:550,y:400};}
+
 function roomBoundsOf(id){
-  if(id==='pip')           return {x1:80,x2:W-80,y1:HALL_Y+30,y2:H-50};
-  if(id==='kit'||id==='sage') return {x1:50,x2:330,y1:HUD_H+80,y2:HUD_H+ROOM_H-60};
-  if(id==='rosie')         return {x1:360,x2:750,y1:HUD_H+80,y2:HUD_H+ROOM_H-60};
-  return                          {x1:780,x2:W-30,y1:HUD_H+80,y2:HUD_H+ROOM_H-60};
+  const m=30;
+  return({
+    rosie:  {x1:TX1+m,x2:TX2-m,y1:215,y2:310},
+    kit:    {x1:TX1+m,x2:TMID-20,y1:335,y2:428},
+    sage:   {x1:TMID+20,x2:TX2-m,y1:335,y2:428},
+    bea:    {x1:TX1+m,x2:TX2-m,y1:455,y2:558},
+    coder:  {x1:TX1+m,x2:TX2-m,y1:85,y2:188},
+    pip:    {x1:TX1+m,x2:TX2-m,y1:585,y2:688},
+  })[id]||{x1:TX1+30,x2:TX2-30,y1:100,y2:650};
 }
 
+// Claude fast-mode indicator
+let claudeMode = false;  // true when /fast is active
+let claudeAura = null;   // {id, timer} — golden aura on the last Claude-backed agent
+
+// Agents
 const agents={};
 ['rosie','kit','sage','bea','coder','pip'].forEach(id=>{
   const h=homeOf(id);
   agents[id]={id,x:h.x,y:h.y,tx:h.x,ty:h.y,home:{...h},
-    phase:Math.random()*Math.PI*2,speech:null,stimer:0,
-    status:'idle',stattimer:0,color:COLORS[id],nextMove:Math.random()*200|0};
+    ph:Math.random()*Math.PI*2,speech:null,stimer:0,
+    status:'idle',stattimer:0,color:COLORS[id],nm:Math.random()*200|0};
 });
 
-// ── Static note rotations (pre-seeded so they don't flicker) ─
-const NOTE_ROT = [0.03,-0.04,0.02,-0.03,0.01,0.05,-0.02];
+// ═══════════════════════════════════════════════════════════════
+//  BACKGROUND: NIGHT FOREST + STARS
+// ═══════════════════════════════════════════════════════════════
+function drawBackground(){
+  // Sky gradient
+  const sg=ctx.createLinearGradient(0,0,0,F.ground.y);
+  sg.addColorStop(0,'#04080F'); sg.addColorStop(0.4,'#071018');
+  sg.addColorStop(1,'#0C1808');
+  ctx.fillStyle=sg; ctx.fillRect(0,0,W,F.ground.y);
+
+  // Stars (twinkle via alpha)
+  for(const s of STARS){
+    const a=0.5+0.5*Math.sin(frame*0.02+s.tw);
+    ctx.fillStyle=`rgba(200,220,255,${a*0.9})`;
+    ctx.beginPath(); ctx.arc(s.x,s.y,s.r,0,Math.PI*2); ctx.fill();
+  }
+
+  // Moon
+  ctx.fillStyle='rgba(220,230,180,0.9)';
+  ctx.beginPath(); ctx.arc(90,48,28,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(200,210,150,0.3)';
+  ctx.beginPath(); ctx.arc(90,48,38,0,Math.PI*2); ctx.fill();
+  // Moon craters
+  ctx.fillStyle='rgba(180,190,140,0.4)';
+  [[78,42,5],[98,55,4],[85,58,3]].forEach(([cx,cy,r])=>{
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  });
+
+  // Background forest silhouette
+  ctx.fillStyle='#080E08';
+  // Left forest
+  for(let i=0;i<8;i++){
+    const tx=i*34, th=90+Math.sin(i*2.7)*30;
+    ctx.beginPath();
+    ctx.moveTo(tx,F.ground.y); ctx.lineTo(tx+17,F.ground.y-th);
+    ctx.lineTo(tx+34,F.ground.y); ctx.fill();
+  }
+  // Right forest
+  for(let i=0;i<8;i++){
+    const tx=DECK_X2+20+i*36, th=80+Math.cos(i*3.1)*25;
+    ctx.beginPath();
+    ctx.moveTo(tx,F.ground.y); ctx.lineTo(tx+18,F.ground.y-th);
+    ctx.lineTo(tx+36,F.ground.y); ctx.fill();
+  }
+
+  // Ground / soil
+  const gg=ctx.createLinearGradient(0,F.ground.y,0,H);
+  gg.addColorStop(0,'#1A1208'); gg.addColorStop(1,'#0E0C06');
+  ctx.fillStyle=gg; ctx.fillRect(0,F.ground.y,W,H-F.ground.y);
+
+  // Grass tufts
+  ctx.strokeStyle='#2A4A18'; ctx.lineWidth=2;
+  for(let x=0;x<W;x+=14){
+    if(x>TX1-40&&x<TX2+40) continue;
+    ctx.beginPath(); ctx.moveTo(x,F.ground.y); ctx.lineTo(x+3,F.ground.y-8); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+5,F.ground.y); ctx.lineTo(x+7,F.ground.y-11); ctx.stroke();
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
-//  DRAW HELPERS
+//  TREE STRUCTURE: BARK, ROOTS, CANOPY, FLOOR SEPARATORS
+// ═══════════════════════════════════════════════════════════════
+function drawTreeStructure(){
+  // ── Outer bark walls ─────────────────────────────────────────
+  // Left bark
+  ctx.fillStyle='#2A1608';
+  ctx.fillRect(TX1-38,F.sky.y+40,38,F.ground.y-F.sky.y-40);
+  // Right bark
+  ctx.fillRect(TX2,F.sky.y+40,38,F.ground.y-F.sky.y-40);
+
+  // Bark grain lines — left wall
+  ctx.strokeStyle='#1E0F04'; ctx.lineWidth=1.5;
+  for(let y=F.sky.y+60;y<F.ground.y;y+=22){
+    ctx.beginPath();
+    ctx.moveTo(TX1-38,y);
+    ctx.bezierCurveTo(TX1-28,y+4,TX1-14,y-3,TX1,y);
+    ctx.stroke();
+  }
+  // Bark grain lines — right wall
+  for(let y=F.sky.y+60;y<F.ground.y;y+=22){
+    ctx.beginPath();
+    ctx.moveTo(TX2,y);
+    ctx.bezierCurveTo(TX2+14,y+4,TX2+28,y-3,TX2+38,y);
+    ctx.stroke();
+  }
+
+  // Inner bark edge (dark band at inner wall edges)
+  ctx.fillStyle='#1A0C04';
+  ctx.fillRect(TX1-4,F.sky.y+40,4,F.ground.y-F.sky.y-40);
+  ctx.fillRect(TX2,F.sky.y+40,4,F.ground.y-F.sky.y-40);
+
+  // ── Floor separators (thick tree-ring planks) ─────────────────
+  const seps=[F.study.y,F.lobby.y,F.lib.y,F.kit.y,F.roots.y];
+  seps.forEach(sy=>{
+    ctx.fillStyle='#2A1608'; ctx.fillRect(TX1,sy,TX2-TX1,10);
+    // Ring lines on separator
+    ctx.strokeStyle='#3A2010'; ctx.lineWidth=1;
+    [3,6].forEach(o=>{
+      ctx.beginPath(); ctx.moveTo(TX1,sy+o); ctx.lineTo(TX2,sy+o); ctx.stroke();
+    });
+    // Shadow under separator
+    ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fillRect(TX1,sy+10,TX2-TX1,8);
+  });
+
+  // ── Roots ─────────────────────────────────────────────────────
+  ctx.strokeStyle='#3A2010'; ctx.lineWidth=18; ctx.lineCap='round';
+  const rootCurves=[
+    [TX1+60,F.ground.y, TX1+20,F.ground.y+30, TX1-40,F.ground.y+55, TX1-90,F.ground.y+70],
+    [TX1+20,F.ground.y, TX1-30,F.ground.y+25, TX1-70,F.ground.y+60, TX1-110,F.ground.y+78],
+    [TMID-60,F.ground.y, TMID-40,F.ground.y+28, TMID-20,F.ground.y+50, TMID-50,F.ground.y+76],
+    [TMID+40,F.ground.y, TMID+30,F.ground.y+28, TMID+10,F.ground.y+55, TMID+60,F.ground.y+78],
+    [TX2-30,F.ground.y, TX2+20,F.ground.y+30, TX2+60,F.ground.y+55, TX2+100,F.ground.y+72],
+    [TX2-70,F.ground.y, TX2+10,F.ground.y+25, TX2+50,F.ground.y+58, TX2+95,F.ground.y+76],
+  ];
+  rootCurves.forEach(([x1,y1,cx1,cy1,cx2,cy2,x2,y2])=>{
+    ctx.beginPath(); ctx.moveTo(x1,y1);
+    ctx.bezierCurveTo(cx1,cy1,cx2,cy2,x2||cx2+20,y2||cy2+10); ctx.stroke();
+  });
+  ctx.lineWidth=1; ctx.lineCap='butt';
+
+  // ── Canopy / foliage ──────────────────────────────────────────
+  const greens=['#0E2C0A','#16401A','#0C2808','#1A5020','#102E10','#204A18'];
+  // Large overlapping leaf clusters
+  const clusters=[
+    [TMID-80,22,90],[TMID+60,18,80],[TMID-20,8,110],[TMID+30,30,85],
+    [TMID-140,32,70],[TMID+150,28,65],[TMID-60,40,65],[TMID+100,40,60],
+    [TX1+20,50,55],[TX2-20,48,55],[TMID,15,95],[TMID-30,50,50],
+  ];
+  clusters.forEach(([cx,cy,r],i)=>{
+    ctx.fillStyle=greens[i%greens.length];
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  });
+  // Lighter highlights on top
+  ['#1A6025','#208030'].forEach((c,i)=>{
+    ctx.fillStyle=c;
+    ctx.beginPath(); ctx.arc(TMID+(i*40-20),10,50-i*10,0,Math.PI*2); ctx.fill();
+  });
+  // Fireflies in canopy
+  if(frame%3===0){
+    const ffy=20+Math.sin(frame*0.03)*15, ffx=TMID+Math.sin(frame*0.02)*150;
+    ctx.fillStyle='rgba(180,255,80,0.6)';
+    ctx.beginPath(); ctx.arc(ffx,ffy,1.5,0,Math.PI*2); ctx.fill();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  BRANCH DECK + OWL MAIL CARRIER
+// ═══════════════════════════════════════════════════════════════
+function drawBranchDeck(){
+  // Main branch
+  ctx.strokeStyle='#3A2010'; ctx.lineWidth=24; ctx.lineCap='round';
+  ctx.beginPath();
+  ctx.moveTo(TX2+4,DECK_Y+10);
+  ctx.bezierCurveTo(TX2+60,DECK_Y+8,TX2+140,DECK_Y+18,DECK_X2+10,DECK_Y+20);
+  ctx.stroke();
+  // Branch highlight
+  ctx.strokeStyle='#5A3818'; ctx.lineWidth=8;
+  ctx.beginPath();
+  ctx.moveTo(TX2+4,DECK_Y+5);
+  ctx.bezierCurveTo(TX2+60,DECK_Y+3,TX2+140,DECK_Y+12,DECK_X2+10,DECK_Y+14);
+  ctx.stroke();
+
+  // Small twig branches
+  ctx.strokeStyle='#3A2010'; ctx.lineWidth=8; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(TX2+80,DECK_Y+12); ctx.lineTo(TX2+70,DECK_Y-22); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(TX2+130,DECK_Y+15); ctx.lineTo(TX2+145,DECK_Y-18); ctx.stroke();
+  // Twig leaves
+  ctx.fillStyle='#1A4810';
+  [[TX2+64,DECK_Y-26,8],[TX2+74,DECK_Y-28,7],[TX2+140,DECK_Y-22,7],[TX2+150,DECK_Y-20,6]].forEach(([cx,cy,r])=>{
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2); ctx.fill();
+  });
+
+  // Deck platform (little wooden balcony)
+  const dx=TX2+60, dw=150, dy=DECK_Y+18;
+  ctx.fillStyle='#5A3818'; ctx.fillRect(dx,dy,dw,8);
+  // Deck planks
+  ctx.strokeStyle='#4A2A10'; ctx.lineWidth=1;
+  for(let px=dx+20;px<dx+dw;px+=20){
+    ctx.beginPath(); ctx.moveTo(px,dy); ctx.lineTo(px,dy+8); ctx.stroke();
+  }
+  // Fence posts
+  ctx.strokeStyle='#4A2A10'; ctx.lineWidth=3;
+  [dx+8,dx+40,dx+80,dx+120,dx+dw-8].forEach(px=>{
+    ctx.beginPath(); ctx.moveTo(px,dy); ctx.lineTo(px,dy-16); ctx.stroke();
+  });
+  // Fence rail
+  ctx.beginPath(); ctx.moveTo(dx+8,dy-14); ctx.lineTo(dx+dw-8,dy-14); ctx.stroke();
+
+  // Mailbox / delivery basket
+  const bx=dx+dw-46, by=dy-28;
+  ctx.fillStyle='#8B4A20'; ctx.fillRect(bx,by,34,20);
+  ctx.fillStyle='#C07030'; ctx.fillRect(bx+2,by+2,30,8);
+  ctx.fillStyle='#3A2010'; ctx.fillRect(bx+14,by+8,6,12);
+  // Maple leaf on box
+  ctx.fillStyle='#C84020'; ctx.font='10px serif'; ctx.fillText('🍁',bx+8,by+12);
+
+  // Label
+  ctx.fillStyle='rgba(180,220,120,0.7)'; ctx.font='8px Georgia,serif';
+  ctx.textAlign='center'; ctx.fillText('OWL POST',dx+dw/2,dy+20); ctx.textAlign='left';
+
+  // Owl
+  drawOwl(OWL_X, OWL_Y, owl.flap>0);
+}
+
+function drawOwl(x,y,flapping){
+  // Body
+  ctx.fillStyle='#8B6B3A';
+  ctx.beginPath(); ctx.ellipse(x,y+2,14,20,0,0,Math.PI*2); ctx.fill();
+
+  // Wings
+  const wa = flapping ? Math.sin(frame*0.4)*0.6 : 0;
+  ctx.fillStyle='#6B4A2A';
+  ctx.save(); ctx.translate(x-12,y+4); ctx.rotate(-0.2+wa);
+  ctx.beginPath(); ctx.ellipse(0,0,9,15,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+  ctx.save(); ctx.translate(x+12,y+4); ctx.rotate(0.2-wa);
+  ctx.beginPath(); ctx.ellipse(0,0,9,15,0,0,Math.PI*2); ctx.fill(); ctx.restore();
+
+  // Belly
+  ctx.fillStyle='#D4C090';
+  ctx.beginPath(); ctx.ellipse(x,y+5,9,13,0,0,Math.PI*2); ctx.fill();
+  // Belly spots
+  ctx.fillStyle='rgba(160,120,60,0.3)';
+  [[-3,2],[3,2],[0,-2],[0,7],[-3,9],[3,9]].forEach(([ox,oy])=>{
+    ctx.beginPath(); ctx.arc(x+ox,y+oy,2,0,Math.PI*2); ctx.fill();
+  });
+
+  // Face disc
+  ctx.fillStyle='#E0D0A0';
+  ctx.beginPath(); ctx.ellipse(x,y-6,11,9,0,0,Math.PI*2); ctx.fill();
+
+  // Eyes
+  ctx.fillStyle='#FFE030';
+  ctx.beginPath(); ctx.arc(x-4,y-7,5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+4,y-7,5,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#0A0808';
+  ctx.beginPath(); ctx.arc(x-4,y-7,2.5,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+4,y-7,2.5,0,Math.PI*2); ctx.fill();
+  // Eye shine
+  ctx.fillStyle='rgba(255,255,255,0.8)';
+  ctx.beginPath(); ctx.arc(x-3,y-8,1,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+5,y-8,1,0,Math.PI*2); ctx.fill();
+
+  // Beak
+  ctx.fillStyle='#D4A020';
+  ctx.beginPath(); ctx.moveTo(x-3,y-3); ctx.lineTo(x+3,y-3); ctx.lineTo(x,y+2); ctx.closePath(); ctx.fill();
+
+  // Ear tufts
+  ctx.fillStyle='#7A5A28';
+  ctx.beginPath(); ctx.moveTo(x-7,y-14); ctx.lineTo(x-11,y-24); ctx.lineTo(x-3,y-13); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(x+7,y-14); ctx.lineTo(x+11,y-24); ctx.lineTo(x+3,y-13); ctx.closePath(); ctx.fill();
+
+  // Feet gripping branch
+  ctx.strokeStyle='#8B6030'; ctx.lineWidth=2; ctx.lineCap='round';
+  [[-5,0],[5,0]].forEach(([ox,_])=>{
+    ctx.beginPath(); ctx.moveTo(x+ox,y+19); ctx.lineTo(x+ox-4,y+26); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+ox,y+19); ctx.lineTo(x+ox,y+27); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x+ox,y+19); ctx.lineTo(x+ox+4,y+26); ctx.stroke();
+  });
+
+  // Hoot speech bubble
+  if(owl.hoot){
+    ctx.save(); ctx.globalAlpha=Math.min(1,owl.hootTimer/500);
+    ctx.fillStyle='#FFF9F0'; rr(x-35,y-55,80,26,6); ctx.fill();
+    ctx.strokeStyle='#D4A820'; ctx.lineWidth=1.5; rr(x-35,y-55,80,26,6); ctx.stroke();
+    ctx.fillStyle='#3D2010'; ctx.font='bold 11px Georgia,serif';
+    ctx.textAlign='center'; ctx.fillText(owl.hoot,x+5,y-37); ctx.textAlign='left';
+    ctx.restore();
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+//  ROOM INTERIORS
 // ═══════════════════════════════════════════════════════════════
 function rr(x,y,w,h,r){
   ctx.beginPath();
-  if(ctx.roundRect) ctx.roundRect(x,y,w,h,r||0);
-  else ctx.rect(x,y,w,h);
+  if(ctx.roundRect) ctx.roundRect(x,y,w,h,r||0); else ctx.rect(x,y,w,h);
   ctx.closePath();
 }
-function woodFloor(x,y,w,h,col){
-  ctx.fillStyle=col; ctx.fillRect(x,y,w,h);
-  ctx.strokeStyle='rgba(0,0,0,0.07)'; ctx.lineWidth=1;
-  let off=0;
-  for(let py=y+28;py<y+h;py+=28){
-    ctx.beginPath();ctx.moveTo(x,py);ctx.lineTo(x+w,py);ctx.stroke();
-    for(let px=x+off;px<x+w;px+=80){
-      ctx.beginPath();ctx.moveTo(px,py-28);ctx.lineTo(px,py);ctx.stroke();
-    }
-    off=(off+40)%80;
+
+// Shared room fill with warm inner glow
+function roomFill(y,h,col,glowCol,glowX,glowY){
+  ctx.fillStyle=col; ctx.fillRect(TX1,y,TX2-TX1,h);
+  if(glowCol){
+    const g=ctx.createRadialGradient(glowX||TMID,glowY||y+h*0.5,0,glowX||TMID,glowY||y+h*0.5,200);
+    g.addColorStop(0,glowCol); g.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=g; ctx.fillRect(TX1,y,TX2-TX1,h);
+  }
+  // Room label (faint, top)
+  ctx.fillStyle='rgba(255,220,150,0.18)'; ctx.font='10px Georgia,serif';
+  ctx.textAlign='center'; ctx.fillText(arguments[6]||'',TMID,y+14); ctx.textAlign='left';
+}
+
+// ── STUDY (Coder's floor) ────────────────────────────────────
+function drawStudy(){
+  const {y,h}=F.study;
+  roomFill(y,h,'#0C1820','rgba(80,120,200,0.12)',TMID,y+h*0.4,'THE STUDY');
+
+  // Star chart pinned to left wall
+  ctx.fillStyle='#1A2A3A'; rr(TX1+18,y+12,85,70,2); ctx.fill();
+  ctx.strokeStyle='#304A60'; ctx.lineWidth=1; rr(TX1+18,y+12,85,70,2); ctx.stroke();
+  // Stars on chart
+  ctx.fillStyle='rgba(180,210,255,0.7)';
+  [[28,22],[44,18],[62,26],[74,18],[80,32],[36,38],[58,42],[70,50],[42,54],[55,30]].forEach(([ox,oy])=>{
+    ctx.beginPath(); ctx.arc(TX1+ox,y+oy,1.2,0,Math.PI*2); ctx.fill();
+  });
+  // Constellation lines
+  ctx.strokeStyle='rgba(100,160,255,0.3)'; ctx.lineWidth=1;
+  [[28,22,44,18],[44,18,62,26],[62,26,74,18],[44,18,36,38],[36,38,58,42]].forEach(([x1,y1,x2,y2])=>{
+    ctx.beginPath(); ctx.moveTo(TX1+x1,y+y1); ctx.lineTo(TX1+x2,y+y2); ctx.stroke();
+  });
+  ctx.fillStyle='#8AAAC0'; ctx.font='7px Georgia,serif';
+  ctx.fillText('STAR CHART',TX1+28,y+h-8);
+
+  // Crystal cluster (right side) — magical light source
+  const cy2=y+h-30;
+  [[TX2-50,cy2,18,'#6040B0'],[TX2-65,cy2-8,14,'#8060D0'],[TX2-38,cy2-12,12,'#9080E0'],[TX2-55,cy2-22,10,'#A090F0']].forEach(([cx,ccy,size,col])=>{
+    ctx.fillStyle=col;
+    ctx.beginPath(); ctx.moveTo(cx,ccy-size); ctx.lineTo(cx+size*0.4,ccy); ctx.lineTo(cx,ccy+size*0.3); ctx.lineTo(cx-size*0.4,ccy); ctx.closePath(); ctx.fill();
+  });
+  const cg=ctx.createRadialGradient(TX2-52,cy2-10,0,TX2-52,cy2-10,50);
+  cg.addColorStop(0,'rgba(120,80,220,0.25)'); cg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=cg; ctx.fillRect(TX1,y,TX2-TX1,h);
+
+  // Desk (center-right)
+  ctx.fillStyle='#2A1808'; rr(TX1+120,y+h-45,230,38,3); ctx.fill();
+  ctx.fillStyle='#4A2A10'; rr(TX1+120,y+h-45,230,9,3); ctx.fill();
+  // Open spellbook
+  ctx.fillStyle='#1A2830'; rr(TX1+148,y+h-62,100,30,2); ctx.fill();
+  ctx.fillStyle='#243840'; ctx.fillRect(TX1+197,y+h-62,2,30);
+  // Glowing text on spellbook
+  ctx.fillStyle='rgba(80,200,255,0.6)'; ctx.font='6px monospace';
+  ['01101001','def heal(','  agent):','  return'].forEach((t,i)=>ctx.fillText(t,TX1+150,y+h-52+i*7));
+  // Inkpot + quill
+  ctx.fillStyle='#1A1A2A'; ctx.beginPath(); ctx.arc(TX1+268,y+h-52,7,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle='#D0C070'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(TX1+274,y+h-58); ctx.lineTo(TX1+282,y+h-35); ctx.stroke();
+
+  // Floating code rune particles
+  if(frame%60<10){
+    ctx.fillStyle='rgba(80,180,255,0.4)'; ctx.font='9px monospace';
+    ctx.fillText(['{}','[]','fn','::','=>'][Math.floor(frame/60)%5],
+      TX1+80+Math.sin(frame*0.02)*60, y+30+Math.sin(frame*0.015)*20);
   }
 }
 
-// ─── Bookshelf ────────────────────────────────────────────────
-const SPINE=['#B03030','#2858B8','#208850','#B07018','#6828B0',
-             '#C03858','#188888','#A04818'];
-function bookshelf(x,y,w,h){
-  ctx.fillStyle=P.darkWood; ctx.fillRect(x,y,w,h);
-  const shelves=Math.floor(h/40);
+// ── LOBBY (Rosie's floor) ──────────────────────────────────
+function drawLobby(){
+  const {y,h}=F.lobby;
+  roomFill(y,h,'#1A1006','rgba(255,160,40,0.1)',TX2-100,y+h*0.6,'THE LOBBY');
+
+  // Reception desk — carved from living wood
+  ctx.fillStyle='#3D2010'; rr(TMID-140,y+28,280,45,5); ctx.fill();
+  ctx.fillStyle='#6B3A18'; rr(TMID-140,y+28,280,10,5); ctx.fill();
+  // Wood grain on desk
+  ctx.strokeStyle='#2A1408'; ctx.lineWidth=1;
+  [y+34,y+38,y+42].forEach(ly=>{
+    ctx.beginPath(); ctx.moveTo(TMID-138,ly); ctx.lineTo(TMID+138,ly); ctx.stroke();
+  });
+  // Ledger
+  ctx.fillStyle='#1A1208'; rr(TMID-60,y+10,80,28,2); ctx.fill();
+  ctx.fillStyle='#C8A060'; [y+15,y+20,y+25,y+30].forEach(ly=>ctx.fillRect(TMID-54,ly,68,1));
+  // Small potted flower on desk
+  ctx.fillStyle='#8B3020'; rr(TMID+90,y+18,14,18,2); ctx.fill();
+  ctx.fillStyle='#3D1808'; ctx.fillRect(TMID+91,y+20,12,5);
+  ctx.fillStyle='#E8A030'; ctx.beginPath(); ctx.arc(TMID+97,y+10,7,0,Math.PI*2); ctx.fill();
+  ['#F0C040','#E87040','#F0A040'].forEach((c,i)=>{
+    ctx.fillStyle=c;
+    ctx.beginPath(); ctx.arc(TMID+97+Math.cos(i*2.1)*5,y+10+Math.sin(i*2.1)*5,3,0,Math.PI*2); ctx.fill();
+  });
+
+  // Warm lantern right wall
+  const lx=TX2-28, ly2=y+25;
+  ctx.fillStyle='#D4A820'; ctx.beginPath(); ctx.arc(lx,ly2,10,0,Math.PI*2); ctx.fill();
+  const lg=ctx.createRadialGradient(lx,ly2,0,lx,ly2+30,80);
+  lg.addColorStop(0,'rgba(255,200,60,0.35)'); lg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=lg; ctx.fillRect(TX1,y,TX2-TX1,h);
+
+  // Vines growing down left wall
+  ctx.strokeStyle='#2A5018'; ctx.lineWidth=2;
+  const vineX=TX1+16;
+  ctx.beginPath(); ctx.moveTo(vineX,y); ctx.bezierCurveTo(vineX+8,y+30,vineX-8,y+60,vineX+4,y+h); ctx.stroke();
+  // Vine leaves
+  ctx.fillStyle='#3A7028';
+  [[vineX+6,y+20],[vineX-4,y+45],[vineX+8,y+70],[vineX-2,y+95]].forEach(([lx2,ly3])=>{
+    ctx.beginPath(); ctx.ellipse(lx2,ly3,8,5,Math.sin(ly3*0.1),0,Math.PI*2); ctx.fill();
+  });
+
+  // Flowers growing through floor
+  ['#E8705A','#D4A020','#C060B0','#70A840'].forEach((c,i)=>{
+    const fx=TX1+80+i*100, fy=y+h-6;
+    ctx.fillStyle='#3A5018'; ctx.fillRect(fx,fy-18,2,18);
+    ctx.fillStyle=c; ctx.beginPath(); ctx.arc(fx+1,fy-22,6,0,Math.PI*2); ctx.fill();
+  });
+
+  // Welcome sign
+  ctx.fillStyle='#4A2A10'; rr(TX1+18,y+15,90,32,3); ctx.fill();
+  ctx.fillStyle='#D4A060'; ctx.font='bold 9px Georgia,serif'; ctx.textAlign='center';
+  ctx.fillText('MAPLE CREEK',TX1+63,y+27); ctx.fillStyle='#C4906A';
+  ctx.font='7px Georgia,serif'; ctx.fillText('Welcome  ✦',TX1+63,y+37);
+  ctx.textAlign='left';
+}
+
+// ── LIBRARY (Kit + Sage's floor) ────────────────────────────
+function drawLibrary(){
+  const {y,h}=F.lib;
+  roomFill(y,h,'#0A1A0C','rgba(40,200,80,0.08)',TMID,y+h*0.5,'THE LIBRARY');
+
+  // Bookshelves following curved walls
+  drawBookshelf(TX1+6,y+8,38,h-16,'lib');
+  drawBookshelf(TX2-44,y+8,38,h-16,'lib');
+
+  // Central reading table
+  ctx.fillStyle='#2A1808'; rr(TMID-70,y+h-48,140,35,3); ctx.fill();
+  ctx.fillStyle='#4A2A10'; rr(TMID-70,y+h-48,140,8,3); ctx.fill();
+
+  // Open tome on table
+  ctx.fillStyle='#1A1208'; rr(TMID-45,y+h-68,90,30,2); ctx.fill();
+  ctx.fillStyle='#2A1C10'; ctx.fillRect(TMID,y+h-68,2,30);
+  ctx.fillStyle='#8A7050'; ctx.font='6px Georgia,serif';
+  ['Memory','Graphs','&','Vectors'].forEach((t,i)=>ctx.fillText(t,TMID-42,y+h-58+i*6));
+  ['RAG','Index','Store'].forEach((t,i)=>ctx.fillText(t,TMID+6,y+h-58+i*7));
+
+  // Floating orb light (magical library lamp)
+  const orbY=y+22+Math.sin(frame*0.03)*4;
+  const og=ctx.createRadialGradient(TMID,orbY,0,TMID,orbY,60);
+  og.addColorStop(0,'rgba(100,255,120,0.35)'); og.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=og; ctx.fillRect(TX1,y,TX2-TX1,h);
+  ctx.fillStyle='rgba(180,255,160,0.9)';
+  ctx.beginPath(); ctx.arc(TMID,orbY,8,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(220,255,200,0.5)';
+  ctx.beginPath(); ctx.arc(TMID,orbY,14,0,Math.PI*2); ctx.fill();
+  // Orb sparkle
+  if(frame%20<5){
+    ctx.fillStyle='rgba(200,255,180,0.8)'; ctx.font='10px serif';
+    ctx.fillText('✦',TMID-4,orbY-14);
+  }
+
+  // Mushroom lanterns on walls
+  [[TX1+50,y+h-20,'#A0E060'],[TX2-50,y+h-20,'#80D040']].forEach(([mx,my,mc])=>{
+    ctx.fillStyle='#8B6020'; ctx.fillRect(mx-2,my-12,4,16);
+    ctx.fillStyle=mc; ctx.beginPath(); ctx.arc(mx,my-14,10,Math.PI,0); ctx.fill();
+    ctx.fillStyle='rgba(150,255,80,0.15)';
+    ctx.beginPath(); ctx.ellipse(mx,my,20,8,0,0,Math.PI*2); ctx.fill();
+  });
+}
+
+// ── KITCHEN (Bea's floor) ──────────────────────────────────
+function drawKitchen(){
+  const {y,h}=F.kit;
+  roomFill(y,h,'#180C04','rgba(255,100,20,0.12)',TX1+80,y+h*0.5,'THE KITCHEN');
+
+  // Stone hearth / cauldron setup (left side)
+  const hx=TX1+20, hy=y+h-55;
+  // Stone arch
+  ctx.fillStyle='#404040'; rr(hx,y+12,100,h-28,4); ctx.fill();
+  ctx.fillStyle='#1A1A1A'; rr(hx+8,y+20,84,h-44,3); ctx.fill();
+  // Hearth glow
+  const ft=frame*0.08;
+  for(let i=0;i<3;i++){
+    const fx2=hx+50+(i-1)*14, fh=30+Math.sin(ft+i*1.4)*10;
+    const fg=ctx.createRadialGradient(fx2,hy,0,fx2,hy-fh,fh);
+    fg.addColorStop(0,'rgba(255,220,60,0.95)');
+    fg.addColorStop(0.4,'rgba(255,90,10,0.7)');
+    fg.addColorStop(1,'rgba(200,20,0,0)');
+    ctx.fillStyle=fg;
+    ctx.beginPath(); ctx.ellipse(fx2,hy-fh/2,11,fh/2,0,0,Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle=`rgba(255,130,20,${0.08+Math.sin(ft)*0.04})`;
+  ctx.fillRect(TX1,y,TX2-TX1,h);
+  // Cauldron
+  ctx.fillStyle='#303040'; rr(hx+22,hy-30,56,35,30); ctx.fill();
+  ctx.fillStyle='#252535'; rr(hx+26,hy-24,48,22,22); ctx.fill();
+  // Cauldron bubbles
+  if(frame%18<6){
+    ctx.fillStyle='rgba(100,200,255,0.5)';
+    [[hx+40,hy-30],[hx+54,hy-34],[hx+46,hy-28]].forEach(([bx,by2])=>{
+      ctx.beginPath(); ctx.arc(bx,by2,3,0,Math.PI*2); ctx.fill();
+    });
+  }
+  // Cauldron legs
+  ctx.fillStyle='#252535';
+  [[hx+28,0],[hx+50,0],[hx+40,4]].forEach(([lx,lo])=>{
+    ctx.fillRect(lx,hy+5+lo,6,14);
+  });
+
+  // Hanging herbs (center ceiling)
+  const herbCols=['#3A6018','#4A7820','#2A5010','#507A28'];
+  for(let i=0;i<5;i++){
+    const hgx=TX1+130+i*68, hgy=y+14;
+    ctx.strokeStyle='#5A3818'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(hgx,y+8); ctx.lineTo(hgx,y+24); ctx.stroke();
+    ctx.fillStyle=herbCols[i%4];
+    ctx.beginPath(); ctx.moveTo(hgx,y+24);
+    ctx.lineTo(hgx-8,y+40); ctx.lineTo(hgx+8,y+40); ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(hgx-4,y+30); ctx.lineTo(hgx-12,y+42); ctx.lineTo(hgx,y+42); ctx.closePath(); ctx.fill();
+  }
+
+  // Prep table (right side)
+  ctx.fillStyle='#D4B878'; rr(TX2-200,y+h-52,170,38,3); ctx.fill();
+  ctx.fillStyle='#C0A060'; rr(TX2-200,y+h-52,170,8,3); ctx.fill();
+  // Items on table
+  ctx.fillStyle='#E06020'; ctx.beginPath(); ctx.arc(TX2-170,y+h-58,9,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#20A040'; ctx.fillRect(TX2-145,y+h-66,8,20);
+  // Mortar + pestle
+  ctx.fillStyle='#808070'; rr(TX2-110,y+h-60,22,14,8); ctx.fill();
+  ctx.strokeStyle='#606050'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(TX2-100,y+h-60); ctx.lineTo(TX2-96,y+h-44); ctx.stroke();
+
+  // Wooden shelf on right wall
+  drawBookshelf(TX2-44,y+8,38,h-16,'kit');
+}
+
+// ── ROOT CHAMBER (Pip's floor) ──────────────────────────────
+function drawRoots(){
+  const {y,h}=F.roots;
+  roomFill(y,h,'#0A0C08','rgba(60,160,40,0.08)',TMID,y+h*0.6,'THE ROOT CHAMBER');
+
+  // Mossy stone floor texture
+  ctx.fillStyle='rgba(30,50,20,0.4)';
+  for(let sx=TX1;sx<TX2;sx+=24){
+    ctx.fillRect(sx,y+h-16,22,14);
+    ctx.fillStyle='rgba(20,40,15,0.4)'; ctx.fillRect(sx+12,y+h-14,22,12);
+    ctx.fillStyle='rgba(30,50,20,0.4)';
+  }
+
+  // Large roots protruding through walls
+  ctx.strokeStyle='#2A1808'; ctx.lineWidth=12; ctx.lineCap='round';
+  [[TX1,y+30,TX1+60,y+60,TX1+100,y+h-20],[TX1,y+80,TX1+40,y+90,TX1+80,y+h-30],
+   [TX2,y+40,TX2-70,y+70,TX2-110,y+h-20],[TX2,y+90,TX2-50,y+80,TX2-90,y+h-15]].forEach(r=>{
+    ctx.beginPath(); ctx.moveTo(r[0],r[1]); ctx.bezierCurveTo(r[2],r[3],r[4],r[5],r[4]+10,r[5]+10);
+    ctx.stroke();
+  });
+  ctx.lineWidth=1; ctx.lineCap='butt';
+
+  // Mushroom lanterns (4 clusters)
+  const mGroups=[[TX1+60,y+h-30],[TX1+160,y+h-28],[TMID+30,y+h-32],[TX2-80,y+h-26]];
+  mGroups.forEach(([mx,my])=>{
+    [[-10,0,'#80D040',14],[0,-8,'#A0E060',16],[10,4,'#60B030',12]].forEach(([ox,oy,mc,size])=>{
+      ctx.fillStyle='#5A3010'; ctx.fillRect(mx+ox-2,my+oy,4,16);
+      ctx.fillStyle=mc; ctx.beginPath(); ctx.arc(mx+ox,my+oy,size/2,Math.PI,0); ctx.fill();
+      const mg=ctx.createRadialGradient(mx+ox,my+oy,0,mx+ox,my+oy,size);
+      mg.addColorStop(0,'rgba(120,255,60,0.18)'); mg.addColorStop(1,'rgba(0,0,0,0)');
+      ctx.fillStyle=mg; ctx.beginPath(); ctx.arc(mx+ox,my+oy,size,0,Math.PI*2); ctx.fill();
+    });
+  });
+
+  // Old wooden chest (Pip's supplies)
+  const chx=TX2-110, chy=y+h-60;
+  ctx.fillStyle='#5A3010'; rr(chx,chy,55,38,3); ctx.fill();
+  ctx.fillStyle='#8B5020'; rr(chx+2,chy+2,51,15,2); ctx.fill();
+  ctx.fillStyle='#C0902A'; ctx.fillRect(chx+18,chy+15,20,8);
+  ctx.fillStyle='#D4A020'; rr(chx+24,chy+13,8,8,2); ctx.fill();
+
+  // Small shrine / altar (left)
+  ctx.fillStyle='#3A2A18'; rr(TX1+20,y+h-80,60,52,2); ctx.fill();
+  ctx.fillStyle='#2A1A0C'; rr(TX1+26,y+h-72,48,44,1); ctx.fill();
+  // Glowing rune on altar
+  const rg=ctx.createRadialGradient(TX1+50,y+h-48,0,TX1+50,y+h-48,20);
+  rg.addColorStop(0,'rgba(80,220,120,0.5)'); rg.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=rg; ctx.fillRect(TX1+20,y+h-80,60,52);
+  ctx.fillStyle='rgba(80,220,120,0.7)'; ctx.font='14px serif';
+  ctx.textAlign='center'; ctx.fillText('ᛝ',TX1+50,y+h-42); ctx.textAlign='left';
+
+  // Mop bucket (Pip's gear)
+  ctx.fillStyle='#8090A0'; rr(TMID-20,y+h-40,28,30,3); ctx.fill();
+  ctx.fillStyle='#6080A0'; rr(TMID-18,y+h-38,24,8,2); ctx.fill();
+  ctx.strokeStyle='#B0B0B0'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(TMID-6,y+h-42); ctx.lineTo(TMID-2,y+h-8); ctx.stroke();
+}
+
+// ── Shared bookshelf ────────────────────────────────────────
+const SPINES=['#B03030','#2858B8','#208850','#B07018','#6828B0',
+              '#C03858','#188888','#A04818','#5060A0','#208870'];
+function drawBookshelf(x,y,w,h,floorId){
+  ctx.fillStyle='#2A1808'; ctx.fillRect(x,y,w,h);
+  const shelves=Math.floor(h/36);
   for(let s=0;s<shelves;s++){
-    const sy=y+8+s*40;
-    ctx.fillStyle=P.medWood; ctx.fillRect(x+3,sy+32,w-6,5);
-    let bx=x+5;
-    for(let b=0;bx<x+w-8;b++){
-      const bw=5+(b%3), bh=18+(b%5)*2;
-      ctx.fillStyle=SPINE[(s*7+b)%SPINE.length];
-      ctx.fillRect(bx,sy+32-bh,bw,bh);
-      ctx.fillStyle='rgba(255,255,255,0.12)';
-      ctx.fillRect(bx+1,sy+32-bh,1,bh);
+    const sy=y+6+s*36;
+    ctx.fillStyle='#4A2A10'; ctx.fillRect(x+3,sy+28,w-6,5);
+    let bx=x+4;
+    for(let b=0;bx<x+w-6;b++){
+      const bw=4+(b%3), bh=14+(b%5)*2;
+      ctx.fillStyle=SPINES[(s*6+b)%SPINES.length];
+      ctx.fillRect(bx,sy+28-bh,bw,bh);
+      ctx.fillStyle='rgba(255,255,255,0.1)'; ctx.fillRect(bx+1,sy+28-bh,1,bh);
       bx+=bw+1;
     }
   }
-  ctx.fillStyle='#2A1808';
-  ctx.fillRect(x,y,4,h); ctx.fillRect(x+w-4,y,4,h); ctx.fillRect(x,y,w,6);
+  ctx.fillStyle='#1A0C04';
+  ctx.fillRect(x,y,3,h); ctx.fillRect(x+w-3,y,3,h); ctx.fillRect(x,y,w,4);
 }
 
-// ─── Armchair ─────────────────────────────────────────────────
-function armchair(x,y,col){
-  ctx.fillStyle=col||'#7B3B2B';
-  rr(x,y,44,52,5); ctx.fill();
-  ctx.fillStyle='#D4A060'; rr(x+3,y+30,38,26,4); ctx.fill();
-  ctx.fillStyle=col||'#7B3B2B';
-  ctx.fillRect(x-7,y+24,9,28); ctx.fillRect(x+42,y+24,9,28);
-  ctx.fillStyle=P.darkWood;
-  ctx.fillRect(x+2,y+52,7,9); ctx.fillRect(x+35,y+52,7,9);
-}
-
-// ─── Candle ───────────────────────────────────────────────────
-function candle(x,y){
-  ctx.fillStyle='#C0A060'; ctx.fillRect(x-6,y+18,12,5);
-  ctx.fillStyle='#FFF8E0'; ctx.fillRect(x-3,y+4,6,16);
-  const fl=Math.sin(frame*0.18)*2;
-  const g=ctx.createRadialGradient(x,y+fl,0,x,y+fl,11);
-  g.addColorStop(0,'rgba(255,220,80,1)');
-  g.addColorStop(0.5,'rgba(255,130,20,0.7)');
-  g.addColorStop(1,'rgba(255,40,0,0)');
-  ctx.fillStyle=g;
-  ctx.beginPath(); ctx.ellipse(x,y-4+fl,5,10,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='rgba(255,170,50,0.05)';
-  ctx.beginPath(); ctx.ellipse(x,y+30,32,14,0,0,Math.PI*2); ctx.fill();
-}
-
-// ─── Front desk ───────────────────────────────────────────────
-function frontDesk(x,y,w,h){
-  ctx.fillStyle=P.darkWood; rr(x,y,w,h,4); ctx.fill();
-  ctx.fillStyle=P.lightWood; rr(x,y,w,10,4); ctx.fill();
-  // ledger
-  ctx.fillStyle='#4A3020'; rr(x+18,y-20,55,32,2); ctx.fill();
-  ctx.fillStyle='#C8A060';
-  [y-15,y-8,y-1].forEach(ly=>ctx.fillRect(x+22,ly,46,2));
-  // bell
-  ctx.fillStyle='#D4A820';
-  ctx.beginPath(); ctx.arc(x+w-38,y-12,11,Math.PI,0); ctx.fill();
-  ctx.fillRect(x+w-46,y-12,18,5);
-  ctx.fillStyle='#B08010';
-  ctx.beginPath(); ctx.arc(x+w-38,y-12,4,0,Math.PI*2); ctx.fill();
-}
-
-// ─── Fireplace ────────────────────────────────────────────────
-function fireplace(x,y,w,h){
-  ctx.fillStyle='#707060'; rr(x,y,w,h,4); ctx.fill();
-  ctx.fillStyle='#1A1008'; ctx.fillRect(x+12,y+12,w-24,h-24);
-  const t=frame*0.07;
-  for(let i=0;i<3;i++){
-    const fx=x+w/2+(i-1)*16, fy=y+h-16;
-    const fh=28+Math.sin(t+i*1.4)*10;
-    const g=ctx.createRadialGradient(fx,fy,0,fx,fy-fh,fh);
-    g.addColorStop(0,'rgba(255,220,70,0.95)');
-    g.addColorStop(0.4,'rgba(255,100,10,0.7)');
-    g.addColorStop(1,'rgba(200,20,0,0)');
-    ctx.fillStyle=g;
-    ctx.beginPath(); ctx.ellipse(fx,fy-fh/2,12,fh/2,0,0,Math.PI*2); ctx.fill();
-  }
-  ctx.fillStyle=P.medWood; ctx.fillRect(x-8,y-12,w+16,14);
-  ctx.fillStyle=`rgba(255,140,30,${0.04+Math.sin(t)*0.02})`;
-  ctx.beginPath(); ctx.ellipse(x+w/2,y+h+24,90,28,0,0,Math.PI*2); ctx.fill();
-}
-
-// ─── Stove ────────────────────────────────────────────────────
-function stove(x,y){
-  ctx.fillStyle='#252525'; rr(x,y,100,82,6); ctx.fill();
-  ctx.fillStyle='#181818'; rr(x,y,100,13,4); ctx.fill();
-  [28,72].forEach(bx=>{
-    ctx.fillStyle='#383838';
-    ctx.beginPath(); ctx.arc(x+bx,y+6,12,0,Math.PI*2); ctx.fill();
-    if(frame%6<4){
-      ctx.fillStyle='rgba(60,140,255,0.55)';
-      ctx.beginPath(); ctx.arc(x+bx,y+6,5,0,Math.PI*2); ctx.fill();
-    }
-  });
-  // pot
-  ctx.fillStyle='#484858'; rr(x+20,y-22,32,22,3); ctx.fill();
-  ctx.fillStyle='#383848'; ctx.fillRect(x+14,y-24,44,4);
-  // steam
-  for(let i=0;i<2;i++){
-    const sx=x+30+i*14, sy=y-32-((frame*0.4+i*28)%22);
-    ctx.strokeStyle='rgba(200,200,200,0.25)'; ctx.lineWidth=2;
-    ctx.beginPath(); ctx.moveTo(sx,sy);
-    ctx.bezierCurveTo(sx+6,sy-8,sx-6,sy-16,sx,sy-22); ctx.stroke();
+// ── Fireflies (drifting upward through tree) ────────────────
+function updateFireflies(){
+  for(const f of FLIES){
+    f.y+=f.vy; f.x+=Math.sin(frame*0.018+f.ph)*0.5;
+    if(f.y<80){f.y=F.roots.y+100;f.x=TX1+30+Math.random()*(TX2-TX1-60)|0;}
   }
 }
-
-// ─── Prep table ───────────────────────────────────────────────
-function prepTable(x,y,w,h){
-  ctx.fillStyle='#D4B880'; rr(x,y,w,h,4); ctx.fill();
-  ctx.fillStyle='#C0A058'; ctx.fillRect(x,y,w,7);
-  ctx.fillStyle='#E06020';
-  ctx.beginPath(); ctx.arc(x+28,y-11,9,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#20A050'; ctx.fillRect(x+50,y-17,8,19);
-}
-
-// ─── Scholar desk ─────────────────────────────────────────────
-function scholarDesk(x,y){
-  ctx.fillStyle=P.darkWood; rr(x,y,92,58,4); ctx.fill();
-  ctx.fillStyle=P.lightWood; rr(x,y,92,9,4); ctx.fill();
-  ctx.fillStyle='#E8D8B8'; rr(x+8,y-24,52,36,2); ctx.fill();
-  ctx.fillStyle='#6B4C2E'; ctx.fillRect(x+33,y-24,2,36);
-  ctx.fillStyle='#604030';
-  for(let l=0;l<5;l++){
-    ctx.fillRect(x+10,y-17+l*6,20,1);
-    ctx.fillRect(x+37,y-17+l*6,20,1);
+function drawFireflies(){
+  for(const f of FLIES){
+    const a=0.4+0.6*(Math.sin(frame*0.06+f.ph)>0?1:0);
+    if(a<0.5) continue;
+    ctx.fillStyle='rgba(180,255,80,0.7)';
+    ctx.beginPath(); ctx.arc(f.x,f.y,1.8,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle='rgba(140,255,60,0.1)';
+    ctx.beginPath(); ctx.arc(f.x,f.y,5,0,Math.PI*2); ctx.fill();
   }
-  ctx.strokeStyle='#C0A060'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(x+64,y-26); ctx.lineTo(x+72,y+6); ctx.stroke();
-  ctx.fillStyle='#1A1A3A';
-  ctx.beginPath(); ctx.arc(x+76,y-8,8,0,Math.PI*2); ctx.fill();
-}
-
-// ─── Plant ────────────────────────────────────────────────────
-function plant(x,y,s){
-  s=s||1;
-  ctx.fillStyle='#C05030';
-  ctx.beginPath();
-  ctx.moveTo(x-12*s,y); ctx.lineTo(x+12*s,y);
-  ctx.lineTo(x+9*s,y+20*s); ctx.lineTo(x-9*s,y+20*s);
-  ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#3D2010'; ctx.fillRect(x-11*s,y+2,22*s,6*s);
-  const lc=[P.leafGreen,P.forestGreen,'#7BC850'];
-  for(let i=0;i<4;i++){
-    const a=(i/4)*Math.PI*2+frame*0.004;
-    const lx=x+Math.cos(a)*14*s, ly=y-14*s+Math.sin(a)*7*s;
-    ctx.fillStyle=lc[i%3];
-    ctx.beginPath(); ctx.ellipse(lx,ly-10*s,9*s,17*s,a,0,Math.PI*2); ctx.fill();
-  }
-}
-
-// ─── Bulletin board ───────────────────────────────────────────
-const NOTES=[
-  {dx:10,dy:10,w:62,h:40,c:'#FFFDE8',t:'Orders\ndue Friday'},
-  {dx:78,dy:8, w:52,h:35,c:'#E8F8E8',t:'Supplier\nmeeting 10am'},
-  {dx:138,dy:12,w:56,h:38,c:'#F4E8FF',t:'New books\narrived!'},
-  {dx:12,dy:58,w:74,h:28,c:'#FFF0E0',t:'Agent log — all well'},
-];
-function bulletinBoard(x,y,w,h){
-  ctx.fillStyle=P.medWood; ctx.fillRect(x-7,y-7,w+14,h+14);
-  ctx.fillStyle='#D4A060'; ctx.fillRect(x,y,w,h);
-  NOTES.forEach((n,i)=>{
-    ctx.save();
-    ctx.translate(x+n.dx,y+n.dy);
-    ctx.rotate(NOTE_ROT[i]);
-    rr(0,0,n.w,n.h,2); ctx.fillStyle=n.c; ctx.fill();
-    ctx.fillStyle='#604030'; ctx.font='9px Georgia,serif';
-    n.t.split('\n').forEach((l,j)=>ctx.fillText(l,5,13+j*11));
-    ctx.restore();
-    ctx.fillStyle='#E03020';
-    ctx.beginPath(); ctx.arc(x+n.dx+n.w/2,y+n.dy-3,4,0,Math.PI*2); ctx.fill();
-  });
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  DRAW SCENE
-// ═══════════════════════════════════════════════════════════════
-function drawScene(){
-  // HUD
-  ctx.fillStyle='#120C04'; ctx.fillRect(0,0,W,HUD_H);
-  ctx.strokeStyle='#5A3C20'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(0,HUD_H-1); ctx.lineTo(W,HUD_H-1); ctx.stroke();
-  ctx.fillStyle='#D4A820'; ctx.font='bold 14px Georgia,serif';
-  ctx.textBaseline='middle';
-  ctx.fillText('✿  MAPLE CREEK WOODLAND HOTEL', 16, HUD_H/2);
-  const now=new Date();
-  ctx.textAlign='right'; ctx.fillStyle='#8B7355'; ctx.font='11px Georgia,serif';
-  ctx.fillText(String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'), W-16, HUD_H/2);
-  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
-
-  // ── LIBRARY ──────────────────────────────────────────────────
-  woodFloor(LIB.x,LIB.y,LIB.w,LIB.h,P.libFloor);
-  bookshelf(LIB.x+8,LIB.y+18,36,LIB.h-28);
-  bookshelf(LIB.x+LIB.w-46,LIB.y+18,36,LIB.h-60);
-  armchair(LIB.x+80,LIB.y+LIB.h-130,'#6B3B2B');
-  armchair(LIB.x+174,LIB.y+LIB.h-136,'#4B5B8B');
-  ctx.fillStyle=P.darkWood; rr(LIB.x+128,LIB.y+LIB.h-114,38,26,3); ctx.fill();
-  candle(LIB.x+147,LIB.y+LIB.h-111);
-  // window
-  ctx.fillStyle='#283848'; rr(LIB.x+102,LIB.y+28,70,90,4); ctx.fill();
-  ctx.strokeStyle='#8090A0'; ctx.lineWidth=3; rr(LIB.x+102,LIB.y+28,70,90,4); ctx.stroke();
-  ctx.strokeStyle='#607080'; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(LIB.x+137,LIB.y+28); ctx.lineTo(LIB.x+137,LIB.y+118); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(LIB.x+102,LIB.y+73); ctx.lineTo(LIB.x+172,LIB.y+73); ctx.stroke();
-  ctx.fillStyle='rgba(0,0,0,0.22)'; ctx.font='11px Georgia,serif'; ctx.textAlign='center';
-  ctx.fillText('THE LIBRARY',LIB.x+LIB.w/2,LIB.y+16); ctx.textAlign='left';
-  // wall divider
-  ctx.fillStyle='#2D1E0F'; ctx.fillRect(LIB.x+LIB.w-2,LIB.y,4,LIB.h);
-
-  // ── LOBBY ─────────────────────────────────────────────────────
-  woodFloor(LOB.x,LOB.y,LOB.w,LOB.h,P.lobFloor);
-  frontDesk(LOB.x+40,LOB.y+108,308,52);
-  fireplace(LOB.x+LOB.w-118,LOB.y+196,102,92);
-  armchair(LOB.x+LOB.w-208,LOB.y+258,'#8B3B2B');
-  armchair(LOB.x+LOB.w-86,LOB.y+318,'#6B4020');
-  // welcome mat
-  ctx.fillStyle='#8B2020'; rr(LOB.x+148,LOB.y+LOB.h-52,124,32,3); ctx.fill();
-  ctx.fillStyle='#D4A060'; ctx.font='10px Georgia,serif'; ctx.textAlign='center';
-  ctx.fillText('WELCOME',LOB.x+210,LOB.y+LOB.h-30); ctx.textAlign='left';
-  plant(LOB.x+28,LOB.y+248,0.9);
-  plant(LOB.x+LOB.w-26,LOB.y+162,0.8);
-  // lantern
-  const lg=frame*0.04;
-  ctx.fillStyle='#D4A820';
-  ctx.beginPath(); ctx.arc(LOB.x+LOB.w/2,LOB.y+34,13,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=`rgba(255,200,60,${0.28+Math.sin(lg)*0.05})`;
-  ctx.beginPath(); ctx.ellipse(LOB.x+LOB.w/2,LOB.y+58,44,18,0,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.font='11px Georgia,serif'; ctx.textAlign='center';
-  ctx.fillText('LOBBY & INN',LOB.x+LOB.w/2,LOB.y+16); ctx.textAlign='left';
-  ctx.fillStyle='#2D1E0F'; ctx.fillRect(LOB.x+LOB.w-2,LOB.y,4,LOB.h);
-
-  // ── KITCHEN ───────────────────────────────────────────────────
-  woodFloor(KIT.x,KIT.y,KIT.w,KIT.h,P.kitFloor);
-  stove(KIT.x+28,KIT.y+78);
-  prepTable(KIT.x+38,KIT.y+218,188,46);
-  bookshelf(KIT.x+KIT.w-48,KIT.y+18,40,KIT.h-58);
-  scholarDesk(KIT.x+KIT.w-178,KIT.y+KIT.h-112);
-  // hanging herbs
-  for(let i=0;i<4;i++){
-    const hx=KIT.x+60+i*54;
-    ctx.fillStyle='#3A6020';
-    ctx.beginPath(); ctx.moveTo(hx,KIT.y+14); ctx.lineTo(hx-10,KIT.y+36); ctx.lineTo(hx+10,KIT.y+36); ctx.closePath(); ctx.fill();
-    ctx.fillStyle='#5A3A18'; ctx.fillRect(hx-1,KIT.y+11,2,7);
-  }
-  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.font='11px Georgia,serif'; ctx.textAlign='center';
-  ctx.fillText('THE KITCHEN',KIT.x+KIT.w/2,KIT.y+16); ctx.textAlign='left';
-
-  // ── HALLWAY ───────────────────────────────────────────────────
-  woodFloor(HALL.x,HALL.y,HALL.w,HALL.h,P.hallFloor);
-  ctx.fillStyle='#120C04'; ctx.fillRect(0,HALL.y,W,3);
-  // doorway arches
-  [[LIB.x+LIB.w/2,84],[LOB.x+LOB.w/2,100],[KIT.x+KIT.w/2,84]].forEach(([ax,aw])=>{
-    ctx.fillStyle=P.darkWood; ctx.fillRect(ax-aw/2,HALL.y-4,aw,8);
-    ctx.fillStyle='#120C04'; ctx.fillRect(ax-aw/2+6,HALL.y-3,aw-12,6);
-  });
-  plant(LIB.x+LIB.w-18,HALL.y+28,1.1);
-  plant(LOB.x+LOB.w-18,HALL.y+26,1.0);
-  plant(KIT.x+8,HALL.y+30,0.9);
-  bulletinBoard(58,HALL.y+46,218,102);
-  ctx.fillStyle='rgba(255,220,150,0.22)'; ctx.font='11px Georgia,serif'; ctx.textAlign='center';
-  ctx.fillText('COMMON HALL',W/2,HALL.y+18); ctx.textAlign='left';
-  ctx.fillStyle='#100C04'; ctx.fillRect(0,H-3,W,3);
-}
-
-// ═══════════════════════════════════════════════════════════════
-//  SPRITES  (canvas-drawn – no bitmaps)
+//  SPRITES  (same characters, placed on their floors)
 // ═══════════════════════════════════════════════════════════════
 function head(x,y,skin,eye){
   ctx.fillStyle=skin||'#F5C890';
@@ -418,126 +869,95 @@ function head(x,y,skin,eye){
   ctx.strokeStyle='#3D2010'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.arc(x,y-26,5,0.2,Math.PI-0.2); ctx.stroke();
 }
-
 function drawRosie(x,y){
-  const col='#E8735A';
-  ctx.fillStyle=col;
-  ctx.beginPath(); ctx.moveTo(x-11,y-18); ctx.lineTo(x-15,y+8);
-  ctx.lineTo(x+15,y+8); ctx.lineTo(x+11,y-18); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#FFF0E0'; ctx.fillRect(x-6,y-14,12,20);
-  ctx.strokeStyle=col; ctx.lineWidth=6;
-  ctx.beginPath(); ctx.moveTo(x-10,y-12); ctx.lineTo(x-17,y+2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(x+10,y-12); ctx.lineTo(x+17,y+2); ctx.stroke();
-  ctx.fillStyle='#F5C890';
-  ctx.beginPath(); ctx.arc(x-17,y+3,4,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(x+17,y+3,4,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle=col;
-  ctx.beginPath(); ctx.moveTo(x-15,y+4); ctx.lineTo(x-19,y+20);
-  ctx.lineTo(x+19,y+20); ctx.lineTo(x+15,y+4); ctx.closePath(); ctx.fill();
-  ctx.fillStyle='#F5C890'; ctx.fillRect(x-8,y+18,5,11); ctx.fillRect(x+3,y+18,5,11);
-  ctx.fillStyle='#3D2010';
-  ctx.beginPath(); ctx.ellipse(x-5,y+31,6,3,0,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x+5,y+31,6,3,0,0,Math.PI*2); ctx.fill();
+  const c='#E8735A';
+  ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(x-10,y-18); ctx.lineTo(x-14,y+8); ctx.lineTo(x+14,y+8); ctx.lineTo(x+10,y-18); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#FFF0E0'; ctx.fillRect(x-5,y-14,10,20);
+  ctx.strokeStyle=c; ctx.lineWidth=6;
+  ctx.beginPath(); ctx.moveTo(x-9,y-12); ctx.lineTo(x-16,y+2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x+9,y-12); ctx.lineTo(x+16,y+2); ctx.stroke();
+  ctx.fillStyle='#F5C890'; ctx.beginPath(); ctx.arc(x-16,y+3,4,0,Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.arc(x+16,y+3,4,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(x-14,y+4); ctx.lineTo(x-18,y+20); ctx.lineTo(x+18,y+20); ctx.lineTo(x+14,y+4); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#F5C890'; ctx.fillRect(x-7,y+18,5,11); ctx.fillRect(x+2,y+18,5,11);
+  ctx.fillStyle='#3D2010'; ctx.beginPath(); ctx.ellipse(x-4,y+31,6,3,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x+5,y+31,6,3,0,0,Math.PI*2); ctx.fill();
   head(x,y);
-  ctx.fillStyle='#C07840';
-  ctx.beginPath(); ctx.arc(x,y-43,12,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#C07840'; ctx.beginPath(); ctx.arc(x,y-43,12,Math.PI,0); ctx.fill();
   ctx.beginPath(); ctx.arc(x-12,y-33,5,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(x+12,y-33,5,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#E070A0';
-  ctx.beginPath(); ctx.arc(x+10,y-40,5,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(x+16,y-38,4,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#E070A0'; ctx.beginPath(); ctx.arc(x+10,y-40,5,0,Math.PI*2); ctx.fill();
 }
-
 function drawKit(x,y){
-  const col='#5B8DC8';
-  ctx.fillStyle=col; rr(x-11,y-18,22,30,3); ctx.fill();
-  ctx.fillStyle='#5C3820'; ctx.fillRect(x-12,y-3,24,5);
-  ctx.fillStyle='#D4A020'; rr(x-4,y-4,8,6,1); ctx.fill();
-  ctx.strokeStyle=col; ctx.lineWidth=6;
+  const c='#5B8DC8';
+  ctx.fillStyle=c; rr(x-11,y-18,22,30,3); ctx.fill();
+  ctx.fillStyle='#5C3820'; ctx.fillRect(x-12,y-3,24,5); ctx.fillStyle='#D4A020'; rr(x-4,y-4,8,6,1); ctx.fill();
+  ctx.strokeStyle=c; ctx.lineWidth=6;
   ctx.beginPath(); ctx.moveTo(x-10,y-10); ctx.lineTo(x-18,y+4); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x+10,y-10); ctx.lineTo(x+18,y+4); ctx.stroke();
   ctx.fillStyle='#8B3B2B'; rr(x+14,y-5,12,17,2); ctx.fill();
   ctx.fillStyle='#D4C090'; ctx.fillRect(x+16,y-3,8,13);
   ctx.fillStyle='#3A3050'; ctx.fillRect(x-8,y+10,7,16); ctx.fillRect(x+1,y+10,7,16);
-  ctx.fillStyle='#4A3820';
-  ctx.beginPath(); ctx.ellipse(x-4,y+28,6,3,0,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x+6,y+28,6,3,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#4A3820'; ctx.beginPath(); ctx.ellipse(x-4,y+28,6,3,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x+6,y+28,6,3,0,0,Math.PI*2); ctx.fill();
   head(x,y,'#F0C080','#205080');
   ctx.strokeStyle='#8B6020'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.arc(x-5,y-31,4,0,Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.arc(x+5,y-31,4,0,Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x-1,y-31); ctx.lineTo(x+1,y-31); ctx.stroke();
-  ctx.fillStyle='#D08040';
-  ctx.beginPath(); ctx.arc(x,y-43,13,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#D08040'; ctx.beginPath(); ctx.arc(x,y-43,13,Math.PI,0); ctx.fill();
 }
-
 function drawSage(x,y){
-  const col='#9B7BC8';
-  ctx.fillStyle=col;
-  ctx.beginPath(); ctx.moveTo(x-12,y-18); ctx.lineTo(x-17,y+20);
-  ctx.lineTo(x+17,y+20); ctx.lineTo(x+12,y-18); ctx.closePath(); ctx.fill();
+  const c='#9B7BC8';
+  ctx.fillStyle=c; ctx.beginPath(); ctx.moveTo(x-12,y-18); ctx.lineTo(x-17,y+20); ctx.lineTo(x+17,y+20); ctx.lineTo(x+12,y-18); ctx.closePath(); ctx.fill();
   ctx.fillStyle='#D4B060'; ctx.fillRect(x-2,y-18,4,38); ctx.fillRect(x-12,y-5,24,3);
-  ctx.strokeStyle=col; ctx.lineWidth=7;
+  ctx.strokeStyle=c; ctx.lineWidth=7;
   ctx.beginPath(); ctx.moveTo(x-10,y-10); ctx.lineTo(x-20,y+8); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x+10,y-10); ctx.lineTo(x+20,y+8); ctx.stroke();
   const og=ctx.createRadialGradient(x+19,y+8,0,x+19,y+8,11);
   og.addColorStop(0,'rgba(200,180,255,1)'); og.addColorStop(1,'rgba(100,60,200,0)');
   ctx.fillStyle=og; ctx.beginPath(); ctx.arc(x+19,y+8,11,0,Math.PI*2); ctx.fill();
   head(x,y,'#ECDBB0','#5030A0');
-  ctx.fillStyle='#5030A0';
-  ctx.beginPath(); ctx.moveTo(x-17,y-39); ctx.lineTo(x+17,y-39);
-  ctx.lineTo(x+7,y-68); ctx.lineTo(x-7,y-68); ctx.closePath(); ctx.fill();
+  ctx.fillStyle='#5030A0'; ctx.beginPath(); ctx.moveTo(x-17,y-39); ctx.lineTo(x+17,y-39); ctx.lineTo(x+7,y-68); ctx.lineTo(x-7,y-68); ctx.closePath(); ctx.fill();
   ctx.fillStyle='#6040C0'; rr(x-19,y-41,38,8,2); ctx.fill();
-  ctx.fillStyle='#FFE040'; ctx.font='8px serif';
-  ctx.fillText('✦',x-5,y-49); ctx.fillText('·',x+5,y-58);
+  ctx.fillStyle='#FFE040'; ctx.font='8px serif'; ctx.fillText('✦',x-5,y-49); ctx.fillText('·',x+5,y-58);
 }
-
 function drawBea(x,y){
-  const col='#D4A020';
+  const c='#D4A020';
   const wb=Math.sin(frame*0.11)*3;
   ctx.fillStyle='#F8F8F0'; rr(x-10,y-18,20,34,3); ctx.fill();
-  ctx.fillStyle=col; ctx.fillRect(x-12,y-18,24,11);
-  ctx.strokeStyle=col; ctx.lineWidth=6;
+  ctx.fillStyle=c; ctx.fillRect(x-12,y-18,24,11);
+  ctx.strokeStyle=c; ctx.lineWidth=6;
   ctx.beginPath(); ctx.moveTo(x-10,y-10); ctx.lineTo(x-17,y+5+wb); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x+10,y-10); ctx.lineTo(x+18,y-2); ctx.stroke();
   ctx.strokeStyle='#B0B0B0'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(x+16,y-4); ctx.lineTo(x+26,y-14); ctx.stroke();
   ctx.beginPath(); ctx.arc(x+27,y-16,5,0,Math.PI*2); ctx.stroke();
   ctx.fillStyle='#605040'; ctx.fillRect(x-8,y+14,7,14); ctx.fillRect(x+1,y+14,7,14);
-  ctx.fillStyle='#4A3A2A';
-  ctx.beginPath(); ctx.ellipse(x-4,y+30,7,3,0,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x+5,y+30,7,3,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#4A3A2A'; ctx.beginPath(); ctx.ellipse(x-4,y+30,7,3,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x+5,y+30,7,3,0,0,Math.PI*2); ctx.fill();
   head(x,y,'#F8C898','#3A2010');
   ctx.fillStyle='#F8F8F8'; ctx.fillRect(x-12,y-46,24,8);
   ctx.beginPath(); ctx.ellipse(x,y-52,14,12,0,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#F0C020'; ctx.fillRect(x-12,y-42,24,4);
 }
-
 function drawCoder(x,y){
-  const col='#4A8A5A';
-  ctx.fillStyle=col; rr(x-11,y-18,22,28,3); ctx.fill();
-  ctx.fillStyle='#F0F0F0';
-  ctx.beginPath(); ctx.moveTo(x-4,y-18); ctx.lineTo(x,y-10); ctx.lineTo(x+4,y-18); ctx.closePath(); ctx.fill();
-  ctx.strokeStyle=col; ctx.lineWidth=6;
+  const c='#4A8A5A';
+  ctx.fillStyle=c; rr(x-11,y-18,22,28,3); ctx.fill();
+  ctx.fillStyle='#F0F0F0'; ctx.beginPath(); ctx.moveTo(x-4,y-18); ctx.lineTo(x,y-10); ctx.lineTo(x+4,y-18); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle=c; ctx.lineWidth=6;
   ctx.beginPath(); ctx.moveTo(x-10,y-10); ctx.lineTo(x-16,y+4); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x+10,y-10); ctx.lineTo(x+17,y-5); ctx.stroke();
   ctx.strokeStyle='#A08040'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(x+14,y-14); ctx.lineTo(x+23,y+2); ctx.stroke();
   ctx.fillStyle='#3A3040'; ctx.fillRect(x-8,y+8,7,18); ctx.fillRect(x+1,y+8,7,18);
-  ctx.fillStyle='#2A2030';
-  ctx.beginPath(); ctx.ellipse(x-4,y+28,6,3,0,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x+5,y+28,6,3,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#2A2030'; ctx.beginPath(); ctx.ellipse(x-4,y+28,6,3,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x+5,y+28,6,3,0,0,Math.PI*2); ctx.fill();
   head(x,y,'#ECC090','#204020');
   ctx.strokeStyle='#506040'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.arc(x-4,y-31,5,0,Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.arc(x+6,y-31,5,0,Math.PI*2); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(x,y-31); ctx.lineTo(x+1,y-31); ctx.stroke();
-  ctx.fillStyle='#282828';
-  ctx.beginPath(); ctx.arc(x,y-42,13,Math.PI,0); ctx.fill();
+  ctx.fillStyle='#282828'; ctx.beginPath(); ctx.arc(x,y-42,13,Math.PI,0); ctx.fill();
   ctx.beginPath(); ctx.arc(x-6,y-47,5,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(x+4,y-48,4,0,Math.PI*2); ctx.fill();
 }
-
 function drawPip(x,y){
   ctx.fillStyle='#7B5530'; rr(x-11,y-14,22,28,3); ctx.fill();
   ctx.fillStyle='#E8C080'; ctx.fillRect(x-9,y-18,18,8);
@@ -550,47 +970,68 @@ function drawPip(x,y){
   const mw=Math.sin(frame*0.07)*5;
   ctx.strokeStyle='#8B6020'; ctx.lineWidth=3;
   ctx.beginPath(); ctx.moveTo(x+18,y+2); ctx.lineTo(x+26,y-30+mw); ctx.stroke();
-  ctx.fillStyle='#C0C0B0';
-  ctx.beginPath(); ctx.ellipse(x+24,y-32+mw,10,5,0.4,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#C0C0B0'; ctx.beginPath(); ctx.ellipse(x+24,y-32+mw,10,5,0.4,0,Math.PI*2); ctx.fill();
   ctx.fillStyle='#7B5530'; ctx.fillRect(x-8,y+12,7,17); ctx.fillRect(x+1,y+12,7,17);
-  ctx.fillStyle='#4A3020';
-  ctx.beginPath(); ctx.ellipse(x-4,y+31,7,3,0,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(x+5,y+31,7,3,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#4A3020'; ctx.beginPath(); ctx.ellipse(x-4,y+31,7,3,0,0,Math.PI*2); ctx.fill(); ctx.beginPath(); ctx.ellipse(x+5,y+31,7,3,0,0,Math.PI*2); ctx.fill();
   head(x,y,'#F0C890','#3D2010');
   ctx.fillStyle='#604020';
   for(let i=-2;i<=2;i++){
-    ctx.beginPath();
-    ctx.moveTo(x+i*5-2,y-41); ctx.lineTo(x+i*5,y-50+Math.abs(i)); ctx.lineTo(x+i*5+2,y-41);
-    ctx.closePath(); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(x+i*5-2,y-41); ctx.lineTo(x+i*5,y-50+Math.abs(i)); ctx.lineTo(x+i*5+2,y-41); ctx.closePath(); ctx.fill();
   }
   ctx.fillStyle='rgba(220,100,80,0.3)';
   ctx.beginPath(); ctx.arc(x-9,y-27,5,0,Math.PI*2); ctx.fill();
   ctx.beginPath(); ctx.arc(x+9,y-27,5,0,Math.PI*2); ctx.fill();
 }
 
+const DRAW_FN={rosie:drawRosie,kit:drawKit,sage:drawSage,bea:drawBea,coder:drawCoder,pip:drawPip};
 function drawAgent(ag){
-  const bob=Math.sin(frame*0.05+ag.phase)*2;
+  const bob=Math.sin(frame*0.05+ag.ph)*2;
   const y=ag.y+bob;
   ctx.save();
-  if(ag.status==='working'){
-    ctx.fillStyle='rgba(80,180,255,0.09)';
-    ctx.beginPath(); ctx.ellipse(ag.x,y+12,24,8,0,0,Math.PI*2); ctx.fill();
-  } else if(ag.status==='healing'){
-    ctx.fillStyle='rgba(255,80,80,0.11)';
-    ctx.beginPath(); ctx.ellipse(ag.x,y+12,24,8,0,0,Math.PI*2); ctx.fill();
+
+  // Claude fast-mode: golden outer aura on the responding agent
+  const isClaudeActive = claudeAura && claudeAura.id===ag.id && claudeAura.timer>0;
+  if(isClaudeActive){
+    const pulse=0.3+0.3*Math.sin(frame*0.09);
+    ctx.fillStyle=`rgba(255,210,60,${pulse})`;
+    ctx.beginPath(); ctx.ellipse(ag.x,y,36,56,0,0,Math.PI*2); ctx.fill();
+    // Sparkle ring
+    for(let i=0;i<6;i++){
+      const a=i/6*Math.PI*2+frame*0.04;
+      ctx.fillStyle='rgba(255,230,100,0.7)';
+      ctx.beginPath(); ctx.arc(ag.x+Math.cos(a)*32,y+Math.sin(a)*48,2.5,0,Math.PI*2); ctx.fill();
+    }
   }
-  ctx.fillStyle='rgba(0,0,0,0.14)';
-  ctx.beginPath(); ctx.ellipse(ag.x,y+24,15,5,0,0,Math.PI*2); ctx.fill();
-  ({rosie:drawRosie,kit:drawKit,sage:drawSage,bea:drawBea,coder:drawCoder,pip:drawPip}[ag.id]||drawRosie)(ag.x,y);
+
+  if(ag.status==='working'){
+    ctx.fillStyle='rgba(80,180,255,0.09)'; ctx.beginPath(); ctx.ellipse(ag.x,y+12,24,8,0,0,Math.PI*2); ctx.fill();
+  } else if(ag.status==='healing'){
+    ctx.fillStyle='rgba(255,80,80,0.11)'; ctx.beginPath(); ctx.ellipse(ag.x,y+12,24,8,0,0,Math.PI*2); ctx.fill();
+  }
+  ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(ag.x,y+24,15,5,0,0,Math.PI*2); ctx.fill();
+  (DRAW_FN[ag.id]||drawRosie)(ag.x,y);
+  ctx.restore();
+}
+
+// Fast-mode banner (drawn over HUD)
+function drawFastModeBanner(){
+  if(!claudeMode) return;
+  ctx.save();
+  ctx.fillStyle='rgba(255,200,40,0.15)';
+  ctx.fillRect(0,0,W,28);
+  ctx.fillStyle='#FFD040'; ctx.font='bold 11px Georgia,serif';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('⚡ FAST MODE — Claude Exclusive',W/2,14);
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
   ctx.restore();
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  SPEECH BUBBLES  (on canvas – always crisp)
+//  SPEECH BUBBLES (on canvas)
 // ═══════════════════════════════════════════════════════════════
 function wrapText(text,maxW,font){
   ctx.save(); ctx.font=font||'13px Georgia,serif';
-  const words=text.split(' '), lines=[];
+  const words=text.split(' '),lines=[];
   let cur='';
   for(const w of words){
     const t=cur?cur+' '+w:w;
@@ -600,7 +1041,6 @@ function wrapText(text,maxW,font){
   if(cur) lines.push(cur);
   ctx.restore(); return lines;
 }
-
 function speechBubble(x,y,text,color,alpha){
   if(!text||alpha<=0) return;
   const PAD=10,LH=18,MW=185,FONT='13px Georgia,serif';
@@ -608,15 +1048,15 @@ function speechBubble(x,y,text,color,alpha){
   const lines=wrapText(text,MW,FONT);
   const bw=MW+PAD*2, bh=lines.length*LH+PAD*2;
   let bx=x-bw/2, by=y-72-bh;
-  bx=Math.max(6,Math.min(W-bw-6,bx));
-  by=Math.max(HUD_H+4,by);
+  bx=Math.max(TX1+4,Math.min(TX2-bw-4,bx));
+  by=Math.max(4,by);
   rr(bx,by,bw,bh,8); ctx.fillStyle='#FFF9F0'; ctx.fill();
   ctx.strokeStyle=color; ctx.lineWidth=2; rr(bx,by,bw,bh,8); ctx.stroke();
   const tx=Math.max(bx+14,Math.min(bx+bw-14,x));
   ctx.fillStyle='#FFF9F0';
-  ctx.beginPath(); ctx.moveTo(tx-7,by+bh); ctx.lineTo(tx,by+bh+13); ctx.lineTo(tx+7,by+bh); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(tx-7,by+bh); ctx.lineTo(tx,by+bh+12); ctx.lineTo(tx+7,by+bh); ctx.closePath(); ctx.fill();
   ctx.strokeStyle=color; ctx.lineWidth=2;
-  ctx.beginPath(); ctx.moveTo(tx-7,by+bh); ctx.lineTo(tx,by+bh+13); ctx.lineTo(tx+7,by+bh); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(tx-7,by+bh); ctx.lineTo(tx,by+bh+12); ctx.lineTo(tx+7,by+bh); ctx.stroke();
   ctx.strokeStyle='#FFF9F0'; ctx.lineWidth=3;
   ctx.beginPath(); ctx.moveTo(tx-6,by+bh); ctx.lineTo(tx+6,by+bh); ctx.stroke();
   ctx.fillStyle='#3D2010'; ctx.font=FONT; ctx.textBaseline='top';
@@ -629,22 +1069,31 @@ function speechBubble(x,y,text,color,alpha){
 // ═══════════════════════════════════════════════════════════════
 function drawDialog(){
   if(dlg.timer<=0) return;
-  const dh=76, dy=H-dh;
-  ctx.fillStyle='rgba(20,12,4,0.93)'; ctx.fillRect(0,dy,W,dh);
-  ctx.strokeStyle='#5A3C20'; ctx.lineWidth=2;
+  const dh=72, dy=H-dh;
+  ctx.fillStyle='rgba(6,10,4,0.93)'; ctx.fillRect(0,dy,W,dh);
+  ctx.strokeStyle='#2A4018'; ctx.lineWidth=2;
   ctx.beginPath(); ctx.moveTo(0,dy); ctx.lineTo(W,dy); ctx.stroke();
-  ctx.fillStyle=COLORS[dlg.who]||'#D4A820';
+  ctx.fillStyle=COLORS[dlg.who]||'#A0C070';
   ctx.font='bold 13px Georgia,serif'; ctx.textBaseline='top';
   ctx.fillText((NAMES[dlg.who]||dlg.who).toUpperCase(),20,dy+9);
-  const revealed=dlg.full.slice(0,dlg.idx);
-  ctx.fillStyle='#E8D8C0'; ctx.font='13px Georgia,serif';
-  wrapText(revealed,W-60,'13px Georgia,serif').slice(0,3).forEach((l,i)=>{
-    ctx.fillText(l,20,dy+27+i*17);
+  ctx.fillStyle='#C8D8B0'; ctx.font='13px Georgia,serif';
+  wrapText(dlg.full.slice(0,dlg.idx),W-60,'13px Georgia,serif').slice(0,3).forEach((l,i)=>{
+    ctx.fillText(l,20,dy+26+i*15);
   });
   if(dlg.idx<dlg.full.length||Math.floor(frame/14)%2===0){
-    ctx.fillStyle=COLORS[dlg.who]||'#D4A820';
-    ctx.fillRect(W-28,H-18,6,11);
+    ctx.fillStyle=COLORS[dlg.who]||'#A0C070'; ctx.fillRect(W-28,H-18,5,10);
   }
+}
+
+// HUD overlay (top of sky)
+function drawHUD(){
+  ctx.fillStyle='rgba(4,8,4,0.70)'; ctx.fillRect(0,0,W,28);
+  ctx.fillStyle='#80C060'; ctx.font='bold 12px Georgia,serif'; ctx.textBaseline='middle';
+  ctx.fillText('✦  MAPLE CREEK — THE GREAT DEKU TREE',16,14);
+  const now=new Date();
+  ctx.textAlign='right'; ctx.fillStyle='#5A8040'; ctx.font='11px Georgia,serif';
+  ctx.fillText(String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0'),W-16,14);
+  ctx.textAlign='left'; ctx.textBaseline='alphabetic';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -662,8 +1111,7 @@ function drawParticles(){
     const p=particles[i];
     p.x+=p.vx; p.y+=p.vy; p.vy+=0.06; p.life--;
     if(p.life<=0){particles.splice(i,1);continue;}
-    ctx.globalAlpha=p.life/p.max;
-    ctx.fillStyle=p.col;
+    ctx.globalAlpha=p.life/p.max; ctx.fillStyle=p.col;
     ctx.beginPath(); ctx.arc(p.x,p.y,p.sz,0,Math.PI*2); ctx.fill();
     ctx.globalAlpha=1;
   }
@@ -677,13 +1125,12 @@ function randTarget(id){
   return{x:b.x1+Math.random()*(b.x2-b.x1)|0, y:b.y1+Math.random()*(b.y2-b.y1)|0};
 }
 function updateAgents(){
-  const SPD=0.4;
+  const SPD=0.38;
   for(const [id,ag] of Object.entries(agents)){
-    ag.nextMove--;
-    if(ag.nextMove<=0){
-      const t=(id==='pip'||Math.random()<0.55)?randTarget(id):homeOf(id);
-      ag.tx=t.x; ag.ty=t.y;
-      ag.nextMove=200+Math.random()*280|0;
+    ag.nm--;
+    if(ag.nm<=0){
+      const t=Math.random()<0.5?randTarget(id):homeOf(id);
+      ag.tx=t.x; ag.ty=t.y; ag.nm=220+Math.random()*300|0;
     }
     const dx=ag.tx-ag.x, dy=ag.ty-ag.y;
     const dist=Math.sqrt(dx*dx+dy*dy);
@@ -691,48 +1138,64 @@ function updateAgents(){
     if(ag.stimer>0){ag.stimer-=16; if(ag.stimer<=0){ag.speech=null;ag.stimer=0;}}
     if(ag.stattimer>0){ag.stattimer-=16; if(ag.stattimer<=0){ag.status='idle';ag.stattimer=0;}}
   }
-  if(dlg.timer>0){
-    dlg.timer-=16;
-    if(dlg.idx<dlg.full.length&&frame%2===0) dlg.idx++;
-  }
+  if(dlg.timer>0){dlg.timer-=16; if(dlg.idx<dlg.full.length&&frame%2===0) dlg.idx++;}
+  // Owl flap
+  if(owl.flap>0) owl.flap-=16;
+  if(owl.hootTimer>0){owl.hootTimer-=16; if(owl.hootTimer<=0)owl.hoot=null;}
+  updateFireflies();
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  EVENTS
 // ═══════════════════════════════════════════════════════════════
 const DL={
-  rosie:{idle:["How may I help you today?","Welcome to Maple Creek Inn!","Our records never sleep.","Ring if you need anything!"],
-         task:["Right away!","Consider it done!","On it, with pleasure!"],
-         mem:["I'll note that in the ledger!","Logged and filed!","Good to know!"],
-         heal:["We'll sort this out!","On my way!","Every problem has a solution!"]},
-  kit:  {idle:["Have you seen the new arrivals?","The archives go back decades.","May I suggest a title?"],
-         mem:["Shelved and cross-referenced!","Filed under memory!","Catalogued!"]},
-  sage: {idle:["The answer is here somewhere.","I've been studying this passage.","Knowledge builds upon itself."],
-         teach:["Another insight gained!","Wisdom compounds daily!","The network grows stronger!"]},
-  bea:  {idle:["The kitchen never sleeps!","More orders from the lobby!","Good food, clear minds."],
+  rosie:{idle:["How may I help you today?","The inn is always open.","Knowledge is power!"],
+         task:["Right away!","Consider it done!","On it!"],
+         mem:["I'll note that in the ledger!","Logged and filed!"],
+         heal:["We'll sort this out!","Every problem has a solution!"]},
+  kit:  {idle:["The archives go back decades.","May I suggest a title?"],
+         mem:["Shelved and cross-referenced!","Filed under memory!"]},
+  sage: {idle:["The answer is here somewhere.","Knowledge builds upon itself."],
+         teach:["Another insight gained!","Wisdom compounds daily!","Growing stronger!"]},
+  bea:  {idle:["The cauldron never sleeps!","Good brew, clear minds."],
          busy:["Right away!","Coming right up!","On it!"]},
-  coder:{idle:["Fascinating problem...","The logic is coming together.","One more test case..."],
-         work:["Running the analysis.","No bugs in this batch!","The algorithm is elegant."]},
-  pip:  {idle:["All clear on this floor!","Spotless as ever!","Keeping the gears turning!"],
-         warn:["Something needs attention!","I'll alert the team!","Pip to the rescue!"],
-         ok:  ["Everything's in order!","All systems go!","The inn runs smoothly!"]},
+  coder:{idle:["Fascinating problem...","The logic is coming together."],
+         work:["Running the analysis.","No bugs in this batch!"]},
+  pip:  {idle:["All clear on this floor!","Spotless as ever!"],
+         warn:["Something needs attention!","Pip to the rescue!"],
+         ok:  ["Everything's in order!","All systems go!"]},
 };
 const pick=a=>a[Math.floor(Math.random()*a.length)];
 
 function say(id,text,dur){
-  const ag=agents[id]; if(!ag)return;
+  const ag=agents[id]; if(!ag) return;
   ag.speech=text; ag.stimer=dur||4000;
   dlg={who:id,full:text,idx:0,timer:dur||4000};
 }
 
+function owlPost(msg){
+  owl.flap=2500; owl.hoot=msg||'Hoot! Mail!'; owl.hootTimer=3500;
+  burst(OWL_X,OWL_Y-20,'#D4A820',6); burst(OWL_X,OWL_Y-20,'#80E090',4);
+}
+
 function handleEvent(type,aid,data){
   data=data||{};
+  const isDoc=data.predicate&&(data.predicate.startsWith('DOC_')||data.predicate==='IS_DOCUMENT');
+
   if(type==='memory.ingest'||type==='memory.supersede'){
-    burst(agents.sage.x,agents.sage.y-20,'#D4B060',6);
-    burst(agents.kit.x,agents.kit.y-20,'#5B8DC8',4);
-    agents.sage.status='working'; agents.sage.stattimer=3000;
-    say('kit',pick(DL.kit.mem),3500);
-    setTimeout(()=>say('sage',pick(DL.sage.teach),3500),1200);
+    if(isDoc){
+      // Document upload → owl animates + hoots
+      owlPost('New scroll! 📜');
+      burst(TX2+120,DECK_Y-30,'#C0E080',8);
+      say('kit','The owl brought a new document! Filing it now.',4000);
+      setTimeout(()=>say('sage','Cross-referencing with existing knowledge...',3500),1500);
+    } else {
+      burst(agents.sage.x,agents.sage.y-20,'#40C060',6);
+      burst(agents.kit.x,agents.kit.y-20,'#5B8DC8',4);
+      agents.sage.status='working'; agents.sage.stattimer=3000;
+      say('kit',pick(DL.kit.mem),3500);
+      setTimeout(()=>say('sage',pick(DL.sage.teach),3500),1200);
+    }
   }
   else if(type==='memory.query'||type==='memory.hit'){
     burst(agents.sage.x,agents.sage.y-20,'#9B7BC8',5);
@@ -741,12 +1204,16 @@ function handleEvent(type,aid,data){
   else if(type==='agent.task.start'){
     const a=agents[aid]||agents.rosie;
     a.status='working'; a.stattimer=4000;
-    const ag=aid||'rosie';
-    say(ag,pick((DL[ag]||DL.bea).busy||DL.bea.busy),3000);
+    say(aid||'rosie',pick((DL[aid]||DL.bea).busy||DL.bea.busy),3000);
   }
   else if(type==='agent.task.done'){
     const a=agents[aid]||agents.rosie;
     burst(a.x,a.y-20,'#80C8F0',8); a.status='idle';
+    // If this was a Claude model response, show golden aura
+    if(data.model&&data.model.startsWith('claude-')){
+      claudeAura={id:aid||'rosie',timer:4000};
+      burst(a.x,a.y-30,'#FFD040',10); burst(a.x,a.y-30,'#FFF0A0',6);
+    }
     say(aid||'rosie',pick((DL[aid]||DL.rosie).task||DL.rosie.task),3000);
   }
   else if(type==='heal.triggered'){
@@ -764,15 +1231,22 @@ function handleEvent(type,aid,data){
     say('pip',pick(DL.pip.ok),3500);
   }
   else if(type==='teach.win'){
-    burst(agents.sage.x,agents.sage.y-20,'#F0E040',10);
+    burst(agents.sage.x,agents.sage.y-20,'#A0E040',10);
     burst(agents.sage.x,agents.sage.y-20,'#C0B0F0',6);
     say('sage',pick(DL.sage.teach),4000);
   }
   else if(type==='system.start'){
-    say('rosie','Maple Creek is open — welcome!',4000);
-  }
-  else if(type==='agent.started'){
-    if(agents[aid]) agents[aid].status='idle';
+    const msg=data.msg||'';
+    if(msg==='fast-mode-on'){
+      claudeMode=true;
+      burst(agents.rosie.x,agents.rosie.y-30,'#FFD040',12);
+      say('rosie','⚡ Fast mode — Claude is now in command!',4000);
+    } else if(msg==='fast-mode-off'){
+      claudeMode=false; claudeAura=null;
+      say('rosie','🌿 Returned to local models.',3500);
+    } else {
+      say('rosie','The Great Deku Tree is open — welcome, traveler!',4500);
+    }
   }
   else if(type==='health.ok'){
     agents.pip.status='idle';
@@ -783,16 +1257,17 @@ function handleEvent(type,aid,data){
 //  DEMO
 // ═══════════════════════════════════════════════════════════════
 const DEMOS=[
-  ()=>say('rosie','Welcome to Maple Creek Woodland Hotel! How may I assist you today?',4500),
-  ()=>handleEvent('memory.ingest','kit',{subject:'Business_License'}),
-  ()=>handleEvent('memory.ingest','sage',{subject:'Book_Burrow'}),
+  ()=>say('rosie','Welcome to the Great Deku Tree! Each chamber holds its purpose.',4800),
+  ()=>handleEvent('memory.ingest','kit',{predicate:'IS_DOCUMENT',subject:'shop_manual.pdf'}),
+  ()=>handleEvent('memory.ingest','sage',{subject:'Book_Burrow',predicate:'HAS_ADDRESS'}),
   ()=>handleEvent('agent.task.start','bea',{}),
   ()=>handleEvent('heal.triggered','kit',{}),
   ()=>handleEvent('heal.success','kit',{}),
   ()=>handleEvent('teach.win','sage',{accuracy:0.94}),
   ()=>handleEvent('agent.task.done','coder',{}),
-  ()=>say('sage','Every question answered builds the map. Keep asking.',4500),
-  ()=>say('pip','All floors clean, all agents running. A fine day at the inn!',4000),
+  ()=>say('sage','Every root remembers. Every leaf reaches upward.',4500),
+  ()=>say('pip',"Root chamber's clean, all floors in order. The tree stands strong!",4200),
+  ()=>{owlPost('Hoot! Hoot! 📜'); say('kit','New delivery from the owl post!',3500);},
 ];
 let di=0;
 function triggerDemo(){DEMOS[di++%DEMOS.length]();}
@@ -804,7 +1279,7 @@ function tryWS(){
   try{
     const p=location.protocol==='https:'?'wss:':'ws:';
     const ws=new WebSocket(`${p}//${location.host}/ws`);
-    ws.onopen=()=>say('pip','Connected to Darkclaw — live events active!',3500);
+    ws.onopen=()=>{say('pip','Connected to Darkclaw — the tree awakens!',3500);};
     ws.onmessage=e=>{try{const ev=JSON.parse(e.data);handleEvent(ev.type,ev.agent_id,ev.data||{});}catch(_){}};
     ws.onclose=()=>setTimeout(tryWS,5000);
   }catch(_){}
@@ -818,8 +1293,8 @@ function toggleSS(){
   ss=!ss;
   document.getElementById('bar').style.display=ss?'none':'';
   document.getElementById('wrap').style.cssText=
-    ss?'position:fixed;inset:0;z-index:9999;border:none;box-shadow:none':'position:relative;box-shadow:0 8px 48px rgba(0,0,0,.7);border:3px solid #6B4C2E';
-  c.style.cssText=ss?'width:100vw;height:100vh;display:block':'';
+    ss?'position:fixed;inset:0;z-index:9999':'position:relative';
+  cv.style.cssText=ss?'width:100vw;height:100vh;display:block':'';
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -829,28 +1304,138 @@ function loop(){
   frame++;
   ctx.clearRect(0,0,W,H);
   ctx.textBaseline='alphabetic';
-  drawScene();
+
+  drawBackground();
+  drawTreeStructure();
+
+  // Room interiors (bottom-up so lower floors paint first)
+  drawRoots();
+  drawKitchen();
+  drawLibrary();
+  drawLobby();
+  drawStudy();
+
+  drawBranchDeck();
+  drawFireflies();
   drawParticles();
+
+  // Agents Y-sorted
   const sorted=Object.values(agents).sort((a,b)=>a.y-b.y);
   sorted.forEach(drawAgent);
   sorted.forEach(ag=>{
     if(ag.speech&&ag.stimer>0)
       speechBubble(ag.x,ag.y-35,ag.speech,ag.color,Math.min(1,ag.stimer/400));
   });
+
   drawDialog();
+  drawHUD();
+  drawFastModeBanner();   // overlays HUD if /fast is active
+  // Tick claude aura timer
+  if(claudeAura&&claudeAura.timer>0) claudeAura.timer-=16;
   updateAgents();
   requestAnimationFrame(loop);
 }
 
 loop();
-setTimeout(()=>say('rosie','Welcome to Maple Creek! The inn is always open.',4500),1000);
+setTimeout(()=>say('rosie','Welcome to the Great Deku Tree! The inn is always open.',4500),1000);
 tryWS();
 document.addEventListener('keydown',e=>{
-  if(e.key==='Enter') triggerDemo();
+  if(e.key==='Enter'&&document.activeElement.id!=='deku-input') triggerDemo();
   if(e.key==='f'||e.key==='F') toggleSS();
   if(e.key==='Escape'&&ss) toggleSS();
 });
-window.DarkclawDaydream={handleEvent,say,triggerDemo};
+window.DarkclawDaydream={handleEvent,say,triggerDemo,owlPost};
+
+// ── Deku Tree Chat ───────────────────────────────────────────────
+
+let _chatOpen=false, _chatBusy=false;
+
+function toggleChat(){
+  _chatOpen=!_chatOpen;
+  document.getElementById('chat-panel').classList.toggle('open',_chatOpen);
+  document.getElementById('chat-toggle').classList.toggle('open',_chatOpen);
+  document.getElementById('chat-toggle').textContent=_chatOpen?'✕':'💬';
+  if(_chatOpen) setTimeout(()=>document.getElementById('deku-input').focus(),220);
+}
+
+function clearChat(){
+  document.getElementById('chat-log').innerHTML=`
+    <div class="cmsg-agent">
+      <div class="cmsg-lbl">The Great Deku Tree</div>
+      The branches are quiet once more. What do you seek?
+    </div>`;
+}
+
+async function dekuSend(){
+  if(_chatBusy) return;
+  const inp=document.getElementById('deku-input');
+  const msg=inp.value.trim(); if(!msg) return;
+  inp.value=''; _chatBusy=true;
+  document.getElementById('deku-send').disabled=true;
+
+  const log=document.getElementById('chat-log');
+  const hint=document.getElementById('chat-hint');
+
+  // User bubble
+  const uEl=document.createElement('div'); uEl.className='cmsg-user';
+  uEl.textContent=msg; log.appendChild(uEl); log.scrollTop=log.scrollHeight;
+
+  // Agent bubble
+  const aEl=document.createElement('div'); aEl.className='cmsg-agent';
+  const lbl=document.createElement('div'); lbl.className='cmsg-lbl'; lbl.textContent='…';
+  const txt=document.createElement('span'); txt.textContent='▋';
+  aEl.appendChild(lbl); aEl.appendChild(txt); log.appendChild(aEl);
+  log.scrollTop=log.scrollHeight;
+  hint.textContent='Routing through the roots…';
+
+  // Rosie walks to desk
+  if(agents.rosie) { agents.rosie.status='working'; agents.rosie.stattimer=5000; }
+
+  try {
+    const resp=await fetch('/stream',{
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({task:msg})
+    });
+    const reader=resp.body.getReader(), dec=new TextDecoder();
+    let buf='', text='', started=false;
+    while(true){
+      const {done,value}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      const lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){
+        if(!line.startsWith('data: ')) continue;
+        let ev; try{ev=JSON.parse(line.slice(6));}catch{continue;}
+        if(ev.type==='meta'){
+          const aid=ev.agent_id||'rosie';
+          lbl.textContent=ev.model&&ev.model.startsWith('claude-')?`${aid} ⚡`:aid+' ♥';
+          hint.textContent=`${aid} → ${(ev.model||'').replace('ollama/','')}`;
+          // Make the responding agent say something on canvas
+          if(agents[aid]) { agents[aid].status='working'; agents[aid].stattimer=4000; }
+        } else if(ev.type==='token'){
+          if(!started){txt.textContent='';text='';started=true;}
+          text+=ev.text; txt.textContent=text+'▋'; log.scrollTop=log.scrollHeight;
+        } else if(ev.type==='done'){
+          txt.textContent=text; hint.textContent='';
+          // Make agent say a short version on canvas
+          const aid=ev.agent_id||'rosie';
+          if(agents[aid]) {
+            say(aid, text.slice(0,60)+(text.length>60?'…':''), 4000);
+            agents[aid].status='idle';
+          }
+        } else if(ev.type==='error'){
+          txt.style.color='#A06040'; txt.textContent='The tree speaks not: '+ev.error;
+          hint.textContent='';
+        }
+      }
+    }
+  } catch(e){
+    txt.style.color='#A06040'; txt.textContent='The roots are silent: '+e.message;
+    hint.textContent='';
+  } finally {
+    _chatBusy=false;
+    document.getElementById('deku-send').disabled=false;
+  }
+}
 </script>
 </body>
 </html>

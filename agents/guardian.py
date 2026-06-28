@@ -14,18 +14,24 @@ It only emits HEALTH_OK on a *state change* so the event stream stays quiet
 when everything is fine.
 """
 import asyncio
+import time
 
 from core.event_bus import emit, EventType
 
 
 class GuardianAgent:
     WARN_ERROR_RATE = 0.3
+    # Minimum gap between guardian-triggered heal attempts for the same agent.
+    # Without this, a persistently-broken agent generates a heal storm (one
+    # heal cycle per watch_loop tick = every 12s = hundreds of retries/hour).
+    HEAL_COOLDOWN_S = 120
 
     def __init__(self, orchestrator=None, heal_engine=None):
         self.orc = orchestrator
         self.healer = heal_engine
         self.watched = {}
-        self._last_status = {}   # agent_id -> last reported status string
+        self._last_status = {}  # agent_id -> last reported level string
+        self._heal_last:  dict = {}  # agent_id -> monotonic time of last heal trigger
         self._running = False
 
     def register(self, agent):
@@ -65,6 +71,12 @@ class GuardianAgent:
         # level == "fail"
         emit(EventType.HEALTH_FAIL, agent_id, **data)
         if self.healer:
+            now = time.monotonic()
+            if now - self._heal_last.get(agent_id, 0) < self.HEAL_COOLDOWN_S:
+                return  # still in cooldown — don't pile on
+
+            self._heal_last[agent_id] = now
+
             # Nothing safe to retry on a dead agent — let the healer classify
             # and escalate to the human review queue.
             async def _noop():
@@ -78,6 +90,26 @@ class GuardianAgent:
             except Exception as e:
                 emit(EventType.SYSTEM_ERROR, agent_id, msg=f"guardian heal failed: {e}")
 
+    # ── fallback promotion ──────────────────────────────────────────────
+
+    def _maybe_promote_fallback(self):
+        """
+        If ≥50% of primary agents are in error state, log and let the
+        orchestrator's _route() naturally fall through to 'fallback'.
+        The fallback agent is always registered — this just announces it.
+        """
+        if not self.orc:
+            return
+        primary = {aid: a for aid, a in self.orc.agents.items()
+                   if aid not in ("fallback", "pip")}
+        if not primary:
+            return
+        errored = sum(1 for a in primary.values() if a.status == "error")
+        if errored / len(primary) >= 0.5:
+            emit(EventType.SYSTEM_START, "pip",
+                 msg="fallback-promoted",
+                 errored=errored, total=len(primary))
+
     # ── continuous watch loop ───────────────────────────────────────────
 
     async def watch_loop(self, interval_s: float = 12.0):
@@ -86,6 +118,7 @@ class GuardianAgent:
         while self._running:
             await asyncio.sleep(interval_s)
             await self.check_once()
+            self._maybe_promote_fallback()
 
     def stop(self):
         self._running = False

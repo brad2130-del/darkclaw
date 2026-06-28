@@ -120,13 +120,15 @@ class WorkerAgent(BaseAgent):
             messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
         messages.append({"role": "user", "content": task})
 
-        # Pass api_base + placement options (num_gpu, num_ctx) for Ollama
+        # Build litellm kwargs — Claude models need no Ollama options
         extra = {}
         if model.startswith("ollama/"):
-            ollama_url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
-            if ollama_url:
-                extra["api_base"] = ollama_url.rstrip("/")
-            model_opts = context.get("model_options", {})
+            model_opts = dict(context.get("model_options", {}))
+            # _api_base overrides the default Ollama URL (e.g. Pi5 endpoint)
+            pi5_url = model_opts.pop("_api_base", None)
+            url = pi5_url or os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
+            if url:
+                extra["api_base"] = url.rstrip("/")
             if model_opts:
                 extra["options"] = model_opts
 

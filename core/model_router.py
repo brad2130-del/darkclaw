@@ -1,107 +1,143 @@
 """
 darkclaw/core/model_router.py
 
-P100-aware dynamic model router with CPU/GPU placement control.
+P100-aware dynamic model router with CPU/GPU placement, fast-mode override,
+OpenClaw Pi5 offload, and Claude cloud models.
 
-Strategy (revised after benchmarking 2026-06-28):
-  Small models (llama3.2, phi3.5) → CPU inference (num_gpu=0)
-    - User's server has enough RAM; 3B models are fast on CPU (~1-2s)
-    - Frees the entire P100 for heavy models that truly benefit from GPU
-  Heavy models (deepseek-coder 16b) → full P100 GPU (num_gpu=99)
-    - 16B needs GPU; CPU would be 60s+ per response
-  System model (openclaw-brain-v2) → full P100 GPU, load on demand
-    - Can now load without OOM since small models vacated VRAM
-
-Benchmark results (P100, 2026-06-28):
-  phi3.5:latest                    cold=10.7s  eval=195ms   ~2.2GB
-  llama3.2:latest                  hot=242ms   eval=281ms   ~2.0GB
-  llama3.1:latest                  cold=20.1s  eval=634ms   ~4.7GB
-  openclaw-brain-v2:latest         OOM w/ deepseek → needs dedicated VRAM
-  deepseek-coder-v2:16b-lite-q4   hot=138ms   eval=225ms   ~9.5GB
+Routing tiers:
+  /fast mode  → Claude Haiku (simple) or Sonnet (complex) — session override
+  Pi5 offload → daddypi OpenClaw (100.77.235.30) for lightweight queries
+  Local GPU   → deepseek-coder (9.5GB) + openclaw-brain-v2 (5GB) on P100
+  Local CPU   → llama3.2, phi3.5, llama3.1 — free VRAM for GPU models
 """
+import os
 import time
 import threading
+
+# ── Fast-mode session flag ────────────────────────────────────────────
+# Set via /fast command in the UI. Resets to False on service restart.
+# When True, every model pick returns a Claude model regardless of role.
+
+_fast_mode: bool = False
+_fast_lock = threading.Lock()
+
+def enable_fast_mode() -> None:
+    global _fast_mode
+    with _fast_lock:
+        _fast_mode = True
+
+def disable_fast_mode() -> None:
+    global _fast_mode
+    with _fast_lock:
+        _fast_mode = False
+
+def is_fast_mode() -> bool:
+    with _fast_lock:
+        return _fast_mode
+
+
+# ── Hardware / endpoint constants ─────────────────────────────────────
+P100_VRAM_GB   = 16.0
+KEEP_ALIVE_SEC = 300
+
+# OpenClaw Pi5 — daddypi (Tailscale 100.77.235.30, RPi5 BCM2712)
+# Always-hot small model; used for lightweight general queries
+OPENCLAW_PI5_URL   = os.environ.get("OPENCLAW_PI5_URL",   "http://100.77.235.30:11434")
+OPENCLAW_PI5_MODEL = os.environ.get("OPENCLAW_PI5_MODEL", "openclaw-brain")
+
+# Named model constants
+FAST_MODEL      = "ollama/llama3.2:latest"
+SYSTEM_MODEL    = "ollama/openclaw-brain-v2:latest"
+SYSTEM_FALLBACK = "ollama/llama3.1:latest"
+CODER_MODEL     = "ollama/deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+PI5_MODEL       = f"ollama/{OPENCLAW_PI5_MODEL}"
+CLAUDE_FAST     = "claude-haiku-4-5-20251001"    # fastest Claude, ~50ms
+CLAUDE_SMART    = "claude-sonnet-4-6"             # complex reasoning + repair plans
+
 
 # ── Model placement profiles ──────────────────────────────────────────
 # num_gpu=0  → CPU + RAM only  (fast enough for small models, frees P100)
 # num_gpu=99 → all layers on GPU (needed for 7B+)
 # num_ctx    → context window cap (smaller = faster prefill)
+# Claude models have no Ollama opts — routed via litellm's Anthropic backend
 
-MODEL_PROFILES = {
+MODEL_PROFILES: dict[str, dict] = {
     "ollama/phi3.5:latest": {
-        "vram_gb": 0,           # CPU — no VRAM cost
-        "num_gpu": 0,
-        "num_ctx": 2048,
+        "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048,
     },
     "ollama/llama3.2:latest": {
-        "vram_gb": 0,           # CPU — no VRAM cost
-        "num_gpu": 0,
-        "num_ctx": 2048,
+        "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048,
     },
     "ollama/llama3.1:latest": {
-        "vram_gb": 0,           # CPU fallback for system queries
-        "num_gpu": 0,
-        "num_ctx": 2048,
+        "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048,
     },
     "ollama/openclaw-brain-v2:latest": {
-        "vram_gb": 5.0,         # GPU — has trained weights, needs fast inference
-        "num_gpu": 99,
-        "num_ctx": 4096,
+        "vram_gb": 5.0, "num_gpu": 99, "num_ctx": 4096,
     },
     "ollama/deepseek-coder-v2:16b-lite-instruct-q4_K_M": {
-        "vram_gb": 9.5,         # GPU — 16B needs P100
-        "num_gpu": 99,
-        "num_ctx": 4096,
+        "vram_gb": 9.5, "num_gpu": 99, "num_ctx": 4096,
     },
+    # Pi5 — routed to daddypi Ollama; no P100 VRAM cost
+    PI5_MODEL: {
+        "vram_gb": 0, "num_gpu": 0, "num_ctx": 4096, "_pi5": True,
+    },
+    # Cloud models — no Ollama options; litellm uses ANTHROPIC_API_KEY
+    CLAUDE_FAST:  {"vram_gb": 0, "num_gpu": 0, "num_ctx": 8192},
+    CLAUDE_SMART: {"vram_gb": 0, "num_gpu": 0, "num_ctx": 16384},
 }
-
-P100_VRAM_GB   = 16.0
-KEEP_ALIVE_SEC = 300
-
-FAST_MODEL      = "ollama/llama3.2:latest"
-SYSTEM_MODEL    = "ollama/openclaw-brain-v2:latest"
-SYSTEM_FALLBACK = "ollama/llama3.1:latest"
-CODER_MODEL     = "ollama/deepseek-coder-v2:16b-lite-instruct-q4_K_M"
 
 
 class ModelRouter:
     """
-    Routes tasks to models and returns Ollama options dict
-    (num_gpu, num_ctx) so each call lands on the right hardware.
+    Routes tasks to models and returns an options dict the caller passes
+    to litellm as kwargs.  Pi5 and Claude models carry special keys
+    (_api_base) that callers must extract before passing as Ollama options.
     """
 
     def __init__(self):
         self._lock = threading.Lock()
-        # Only GPU-resident models tracked here (CPU models don't count)
         self._gpu_hot: dict[str, float] = {
-            CODER_MODEL: time.time(),   # was hot at benchmark
+            CODER_MODEL: time.time(),
         }
 
     # ── public API ─────────────────────────────────────────────────────
 
     def pick(self, role: str, task: str, complexity: float = 0.5) -> tuple[str, dict]:
         """
-        Returns (model_string, ollama_options_dict).
-        Caller should pass options to litellm as extra kwargs.
+        Returns (model_string, options_dict).
+
+        options_dict may contain:
+          num_gpu, num_ctx  → Ollama placement (pass as extra["options"])
+          _api_base         → override api_base (Pi5); callers must pop this
         """
         with self._lock:
             self._expire_stale()
+
+            # /fast mode: all traffic → Claude
+            if is_fast_mode():
+                m = CLAUDE_FAST if complexity < 0.5 else CLAUDE_SMART
+                return m, {}
+
+            # Pi5 offload: very simple helper / shopkeeper queries → daddypi
+            if role in ("helper", "shopkeeper") and complexity < 0.25 and OPENCLAW_PI5_URL:
+                return self._use_pi5()
 
             if role in ("helper", "shopkeeper", "worker"):
                 return self._use(FAST_MODEL)
 
             if role == "memory":
-                # openclaw-brain-v2 has trained weights — use it on GPU
-                # It can now load since small models vacated VRAM
                 if self._gpu_fits(SYSTEM_MODEL):
                     return self._use(SYSTEM_MODEL)
-                # If something heavy is blocking, fall back to CPU llama3.1
                 return self._use(SYSTEM_FALLBACK)
 
             if role == "coder":
                 if complexity < 0.3:
                     return self._use(FAST_MODEL)
                 return self._use(CODER_MODEL)
+
+            # Fallback agent always uses Claude Haiku
+            if role == "fallback":
+                return CLAUDE_FAST, {}
 
             return self._use(FAST_MODEL)
 
@@ -112,7 +148,6 @@ class ModelRouter:
                 self._gpu_hot[model] = time.time()
 
     def ollama_options(self, model: str) -> dict:
-        """Return the options dict to pass with every Ollama call."""
         prof = MODEL_PROFILES.get(model, {})
         opts = {}
         if "num_gpu" in prof:
@@ -125,12 +160,16 @@ class ModelRouter:
         with self._lock:
             self._expire_stale()
             gpu_models = list(self._gpu_hot.keys())
-            used = sum(MODEL_PROFILES.get(m, {}).get("vram_gb", 0)
-                       for m in gpu_models)
+            used = sum(MODEL_PROFILES.get(m, {}).get("vram_gb", 0) for m in gpu_models)
             return {
-                "gpu_models":   gpu_models,
-                "cpu_models":   [k for k, v in MODEL_PROFILES.items()
-                                 if v.get("num_gpu", 0) == 0],
+                "fast_mode":     is_fast_mode(),
+                "gpu_models":    gpu_models,
+                "cpu_models":    [k for k, v in MODEL_PROFILES.items()
+                                  if v.get("num_gpu", 0) == 0 and not v.get("_pi5")
+                                  and not k.startswith("claude-")],
+                "pi5_model":     PI5_MODEL if OPENCLAW_PI5_URL else None,
+                "pi5_url":       OPENCLAW_PI5_URL or None,
+                "cloud_models":  [CLAUDE_FAST, CLAUDE_SMART],
                 "vram_used_gb":  round(used, 1),
                 "vram_total_gb": P100_VRAM_GB,
                 "vram_free_gb":  round(P100_VRAM_GB - used, 1),
@@ -144,8 +183,7 @@ class ModelRouter:
                          if now - t < KEEP_ALIVE_SEC}
 
     def _gpu_fits(self, model: str) -> bool:
-        used = sum(MODEL_PROFILES.get(m, {}).get("vram_gb", 0)
-                   for m in self._gpu_hot)
+        used = sum(MODEL_PROFILES.get(m, {}).get("vram_gb", 0) for m in self._gpu_hot)
         need = MODEL_PROFILES.get(model, {}).get("vram_gb", 0)
         return used + need <= P100_VRAM_GB
 
@@ -153,7 +191,15 @@ class ModelRouter:
         prof = MODEL_PROFILES.get(model, {})
         if prof.get("vram_gb", 0) > 0:
             self._gpu_hot[model] = time.time()
+        if model.startswith("claude-"):
+            return model, {}
         return model, self.ollama_options(model)
+
+    def _use_pi5(self) -> tuple[str, dict]:
+        """Route to daddypi's OpenClaw — inject _api_base so caller overrides endpoint."""
+        opts = self.ollama_options(PI5_MODEL)
+        opts["_api_base"] = OPENCLAW_PI5_URL
+        return PI5_MODEL, opts
 
 
 # ── Complexity scoring ────────────────────────────────────────────────

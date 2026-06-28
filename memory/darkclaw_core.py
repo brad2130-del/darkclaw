@@ -458,80 +458,91 @@ class VectorMemory:
 # ─────────────────────────────────────────────
 
 class DarkclawPersistence:
+    """
+    SQLite persistence layer.  Uses a single persistent connection with WAL mode
+    so we never accumulate open file descriptors — each `sqlite3.connect()` call
+    normally opens the DB file plus a WAL journal file.  Under load (hundreds of
+    fact-ingests per minute) that was the primary FD leak source.
+    """
+
     def __init__(self, db_path: str):
         self.db_path = db_path
+        # Single connection — asyncio is single-threaded so no locking needed.
+        # check_same_thread=False is a safety valve for any off-loop calls.
+        self._conn = sqlite3.connect(db_path, check_same_thread=False)
+        self._conn.execute("PRAGMA journal_mode=WAL")
+        self._conn.execute("PRAGMA synchronous=NORMAL")
         self._init_db()
 
     def _init_db(self):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.executescript("""
-                CREATE TABLE IF NOT EXISTS facts (
-                    fact_id      TEXT PRIMARY KEY,
-                    agent_id     TEXT NOT NULL,
-                    subject      TEXT NOT NULL,
-                    predicate    TEXT NOT NULL,
-                    object       TEXT NOT NULL,
-                    turn_id      INTEGER,
-                    timestamp    REAL,
-                    multi_valued INTEGER DEFAULT 0,
-                    superseded_by TEXT,
-                    raw_json     TEXT
-                );
-                CREATE TABLE IF NOT EXISTS turns (
-                    turn_id   INTEGER,
-                    agent_id  TEXT NOT NULL,
-                    speaker   TEXT,
-                    text      TEXT,
-                    turn_type TEXT,
-                    timestamp REAL,
-                    PRIMARY KEY (turn_id, agent_id)
-                );
-                CREATE TABLE IF NOT EXISTS audit_log (
-                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                    event_type TEXT,
-                    agent_id   TEXT,
-                    fact_id    TEXT,
-                    detail     TEXT,
-                    timestamp  REAL DEFAULT (unixepoch('now','subsec'))
-                );
-                CREATE INDEX IF NOT EXISTS idx_facts_subpred
-                    ON facts(agent_id, subject, predicate);
-            """)
+        self._conn.executescript("""
+            CREATE TABLE IF NOT EXISTS facts (
+                fact_id      TEXT PRIMARY KEY,
+                agent_id     TEXT NOT NULL,
+                subject      TEXT NOT NULL,
+                predicate    TEXT NOT NULL,
+                object       TEXT NOT NULL,
+                turn_id      INTEGER,
+                timestamp    REAL,
+                multi_valued INTEGER DEFAULT 0,
+                superseded_by TEXT,
+                raw_json     TEXT
+            );
+            CREATE TABLE IF NOT EXISTS turns (
+                turn_id   INTEGER,
+                agent_id  TEXT NOT NULL,
+                speaker   TEXT,
+                text      TEXT,
+                turn_type TEXT,
+                timestamp REAL,
+                PRIMARY KEY (turn_id, agent_id)
+            );
+            CREATE TABLE IF NOT EXISTS audit_log (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                event_type TEXT,
+                agent_id   TEXT,
+                fact_id    TEXT,
+                detail     TEXT,
+                timestamp  REAL DEFAULT (unixepoch('now','subsec'))
+            );
+            CREATE INDEX IF NOT EXISTS idx_facts_subpred
+                ON facts(agent_id, subject, predicate);
+        """)
+        self._conn.commit()
 
     def save_fact(self, fact: Fact):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                INSERT OR REPLACE INTO facts
-                (fact_id,agent_id,subject,predicate,object,turn_id,
-                 timestamp,multi_valued,superseded_by,raw_json)
-                VALUES (?,?,?,?,?,?,?,?,?,?)
-            """, (fact.fact_id, fact.agent_id, fact.subject, fact.predicate,
-                  fact.object, fact.turn_id, fact.timestamp,
-                  int(fact.multi_valued), fact.superseded_by,
-                  json.dumps(fact.to_dict())))
+        self._conn.execute("""
+            INSERT OR REPLACE INTO facts
+            (fact_id,agent_id,subject,predicate,object,turn_id,
+             timestamp,multi_valued,superseded_by,raw_json)
+            VALUES (?,?,?,?,?,?,?,?,?,?)
+        """, (fact.fact_id, fact.agent_id, fact.subject, fact.predicate,
+              fact.object, fact.turn_id, fact.timestamp,
+              int(fact.multi_valued), fact.superseded_by,
+              json.dumps(fact.to_dict())))
+        self._conn.commit()
 
     def save_turn(self, turn: Turn):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("""
-                INSERT OR REPLACE INTO turns
-                (turn_id,agent_id,speaker,text,turn_type,timestamp)
-                VALUES (?,?,?,?,?,?)
-            """, (turn.turn_id, turn.agent_id, turn.speaker,
-                  turn.text, turn.turn_type, turn.timestamp))
+        self._conn.execute("""
+            INSERT OR REPLACE INTO turns
+            (turn_id,agent_id,speaker,text,turn_type,timestamp)
+            VALUES (?,?,?,?,?,?)
+        """, (turn.turn_id, turn.agent_id, turn.speaker,
+              turn.text, turn.turn_type, turn.timestamp))
+        self._conn.commit()
 
     def mark_superseded(self, old_fid: str, new_fid: str):
-        with sqlite3.connect(self.db_path) as conn:
-            conn.execute("UPDATE facts SET superseded_by=? WHERE fact_id=?",
-                         (new_fid, old_fid))
-            conn.execute(
-                "INSERT INTO audit_log(event_type,fact_id,detail) VALUES(?,?,?)",
-                ("SUPERSEDE", old_fid, f"replaced_by:{new_fid}"))
+        self._conn.execute("UPDATE facts SET superseded_by=? WHERE fact_id=?",
+                           (new_fid, old_fid))
+        self._conn.execute(
+            "INSERT INTO audit_log(event_type,fact_id,detail) VALUES(?,?,?)",
+            ("SUPERSEDE", old_fid, f"replaced_by:{new_fid}"))
+        self._conn.commit()
 
     def load_active_facts(self, agent_id: str) -> List[dict]:
-        with sqlite3.connect(self.db_path) as conn:
-            rows = conn.execute(
-                "SELECT raw_json FROM facts WHERE agent_id=? AND superseded_by IS NULL",
-                (agent_id,)).fetchall()
+        rows = self._conn.execute(
+            "SELECT raw_json FROM facts WHERE agent_id=? AND superseded_by IS NULL",
+            (agent_id,)).fetchall()
         return [json.loads(r[0]) for r in rows]
 
 
@@ -590,39 +601,37 @@ class DarkclawEngine:
     def _reload_from_db(self):
         """Warm up the in-memory graph and vector stores from persisted facts."""
         try:
-            with sqlite3.connect(self.persistence.db_path) as conn:
-                # Reload all active facts into graphs
-                rows = conn.execute(
-                    "SELECT agent_id, subject, predicate, object, "
-                    "turn_id, timestamp, multi_valued, fact_id, raw_json "
-                    "FROM facts WHERE superseded_by IS NULL"
-                ).fetchall()
-                for row in rows:
-                    aid, subj, pred, obj, tid, ts, mv, fid, raw = row
-                    self._turn_ctr[aid] = max(self._turn_ctr.get(aid, 0), tid or 0)
-                    graph = self._graph(aid)
-                    try:
-                        d = json.loads(raw) if raw else {}
-                        fact = Fact(
-                            fact_id=fid, agent_id=aid, subject=subj,
-                            predicate=pred, object=obj, turn_id=tid or 0,
-                            timestamp=ts or 0.0, multi_valued=bool(mv),
-                        )
-                        graph.graph.add_node(subj)
-                        graph.graph.add_node(obj)
-                        graph.graph.add_edge(subj, obj,
-                                             predicate=pred, fact=fact)
-                    except Exception:
-                        pass
+            conn = self.persistence._conn
+            # Reload all active facts into graphs
+            rows = conn.execute(
+                "SELECT agent_id, subject, predicate, object, "
+                "turn_id, timestamp, multi_valued, fact_id, raw_json "
+                "FROM facts WHERE superseded_by IS NULL"
+            ).fetchall()
+            for row in rows:
+                aid, subj, pred, obj, tid, ts, mv, fid, raw = row
+                self._turn_ctr[aid] = max(self._turn_ctr.get(aid, 0), tid or 0)
+                graph = self._graph(aid)
+                try:
+                    fact = Fact(
+                        fact_id=fid, agent_id=aid, subject=subj,
+                        predicate=pred, object=obj, turn_id=tid or 0,
+                        timestamp=ts or 0.0, multi_valued=bool(mv),
+                    )
+                    graph.graph.add_node(subj)
+                    graph.graph.add_node(obj)
+                    graph.graph.add_edge(subj, obj, predicate=pred, fact=fact)
+                except Exception:
+                    pass
 
-                # Reload turns into vector stores for semantic search
-                rows = conn.execute(
-                    "SELECT agent_id, text, turn_type, turn_id "
-                    "FROM turns WHERE text IS NOT NULL AND text != ''"
-                ).fetchall()
-                for aid, text, ttype, tid in rows:
-                    vec = self._vector(aid)
-                    vec.ingest(text, {"turn_id": tid, "type": ttype or "TURN"})
+            # Reload turns into vector stores for semantic search
+            rows = conn.execute(
+                "SELECT agent_id, text, turn_type, turn_id "
+                "FROM turns WHERE text IS NOT NULL AND text != ''"
+            ).fetchall()
+            for aid, text, ttype, tid in rows:
+                vec = self._vector(aid)
+                vec.ingest(text, {"turn_id": tid, "type": ttype or "TURN"})
         except Exception:
             pass   # fresh DB — nothing to reload
 
