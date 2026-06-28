@@ -884,8 +884,8 @@ body {
            style="border:2px dashed var(--border-hi);border-radius:8px;padding:20px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s;flex-shrink:0">
         <div style="font-size:22px;margin-bottom:6px">📄</div>
         <div style="font-size:12px;color:var(--muted)">Drop files or click to upload</div>
-        <div style="font-size:10px;color:var(--faint);margin-top:3px">.txt .md .pdf .docx .py .json .csv</div>
-        <input type="file" id="doc-file-input" multiple accept=".txt,.md,.pdf,.docx,.py,.js,.json,.csv,.yaml,.yml" style="display:none" onchange="handleDocFileSelect(event)"/>
+        <div style="font-size:10px;color:var(--faint);margin-top:3px">.txt .md .pdf .docx .py .ts .tsx .js .json .csv .go .rs</div>
+        <input type="file" id="doc-file-input" multiple accept=".txt,.md,.pdf,.docx,.py,.js,.ts,.tsx,.jsx,.json,.csv,.yaml,.yml,.sh,.go,.rs,.rb,.kt" style="display:none" onchange="handleDocFileSelect(event)"/>
       </div>
       <div id="doc-upload-status" style="font-size:10px;color:var(--muted);min-height:14px;text-align:center"></div>
 
@@ -893,6 +893,12 @@ body {
       <div style="font-family:var(--font-mono);font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase;margin-bottom:2px">Indexed Documents</div>
       <div id="doc-list" style="flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px">
         <div class="empty-hint">No documents yet. Upload one above.</div>
+      </div>
+
+      <!-- Self-improve analysis panel -->
+      <div id="doc-analysis" style="display:none;background:var(--panel);border:1px solid var(--amber);border-radius:6px;padding:10px;font-size:11px;line-height:1.6;max-height:200px;overflow-y:auto;flex-shrink:0">
+        <div style="font-family:var(--font-mono);font-size:10px;color:var(--amber);margin-bottom:6px">⚙ SELF-IMPROVEMENT ANALYSIS</div>
+        <div id="doc-analysis-text" style="color:var(--text);white-space:pre-wrap"></div>
       </div>
 
     </div>
@@ -1674,10 +1680,29 @@ async function refreshDocList() {
           <div class="doc-card-name" title="${doc.filename}">${doc.filename}</div>
           <div class="doc-card-meta">${doc.chunks} chunks · ${_fmtBytes(doc.size_bytes)}</div>
         </div>
+        <button class="doc-card-del" title="Analyze for self-improvement" onclick="analyzeDoc('${doc.doc_id}','${doc.filename}')" style="border-color:var(--amber);color:var(--amber)">⚙</button>
         <button class="doc-card-del" onclick="deleteDoc('${doc.doc_id}')">✕</button>
       </div>`).join("");
   } catch(e) {
     list.innerHTML = `<div class="empty-hint">Could not load docs: ${e.message}</div>`;
+  }
+}
+
+async function analyzeDoc(docId, filename) {
+  const panel  = document.getElementById("doc-analysis");
+  const text   = document.getElementById("doc-analysis-text");
+  const status = document.getElementById("doc-upload-status");
+  panel.style.display = "block";
+  text.textContent = `Analyzing ${filename}…`;
+  status.textContent = "Coder agent comparing doc against Darkclaw config…";
+  try {
+    const r = await fetch(`${location.origin}/api/docs/${docId}/analyze`, {method:"POST"});
+    const d = await r.json();
+    text.textContent = d.analysis || d.error || "No analysis returned.";
+    status.textContent = `Analysis complete (${Math.round(d.duration_ms/1000)}s via ${d.agent_id})`;
+  } catch(e) {
+    text.textContent = `Error: ${e.message}`;
+    status.textContent = "";
   }
 }
 

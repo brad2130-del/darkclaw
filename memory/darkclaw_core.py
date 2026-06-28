@@ -585,6 +585,46 @@ class DarkclawEngine:
         self._graphs:  Dict[str, ContextGraph] = {}
         self._vectors: Dict[str, VectorMemory] = {}
         self._turn_ctr: Dict[str, int] = {}
+        self._reload_from_db()
+
+    def _reload_from_db(self):
+        """Warm up the in-memory graph and vector stores from persisted facts."""
+        try:
+            with sqlite3.connect(self.persistence.db_path) as conn:
+                # Reload all active facts into graphs
+                rows = conn.execute(
+                    "SELECT agent_id, subject, predicate, object, "
+                    "turn_id, timestamp, multi_valued, fact_id, raw_json "
+                    "FROM facts WHERE superseded_by IS NULL"
+                ).fetchall()
+                for row in rows:
+                    aid, subj, pred, obj, tid, ts, mv, fid, raw = row
+                    self._turn_ctr[aid] = max(self._turn_ctr.get(aid, 0), tid or 0)
+                    graph = self._graph(aid)
+                    try:
+                        d = json.loads(raw) if raw else {}
+                        fact = Fact(
+                            fact_id=fid, agent_id=aid, subject=subj,
+                            predicate=pred, object=obj, turn_id=tid or 0,
+                            timestamp=ts or 0.0, multi_valued=bool(mv),
+                        )
+                        graph.graph.add_node(subj)
+                        graph.graph.add_node(obj)
+                        graph.graph.add_edge(subj, obj,
+                                             predicate=pred, fact=fact)
+                    except Exception:
+                        pass
+
+                # Reload turns into vector stores for semantic search
+                rows = conn.execute(
+                    "SELECT agent_id, text, turn_type, turn_id "
+                    "FROM turns WHERE text IS NOT NULL AND text != ''"
+                ).fetchall()
+                for aid, text, ttype, tid in rows:
+                    vec = self._vector(aid)
+                    vec.ingest(text, {"turn_id": tid, "type": ttype or "TURN"})
+        except Exception:
+            pass   # fresh DB — nothing to reload
 
     # ── internal helpers ───────────────────────────────────────────────
 

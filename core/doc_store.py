@@ -47,8 +47,9 @@ def _save_meta(meta: dict):
 
 # ── text extraction ────────────────────────────────────────────────────
 
-TEXT_EXTS = {".txt", ".md", ".py", ".js", ".ts", ".json", ".csv",
-             ".yaml", ".yml", ".toml", ".sh", ".html", ".xml", ".rst"}
+TEXT_EXTS = {".txt", ".md", ".py", ".js", ".ts", ".tsx", ".jsx",
+             ".json", ".csv", ".yaml", ".yml", ".toml", ".sh",
+             ".html", ".xml", ".rst", ".kt", ".go", ".rs", ".rb"}
 
 
 def extract_text(filename: str, raw_bytes: bytes) -> str:

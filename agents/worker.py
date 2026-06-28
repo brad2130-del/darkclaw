@@ -97,9 +97,27 @@ class WorkerAgent(BaseAgent):
                                 os.path.expanduser("~/darkclaw/data/darkclaw.db"))
             self._middleware = DarkclawMiddleware(db_path=db)
 
-        messages = []
+        # Build system prompt from all context sources
+        sys_parts = []
+
+        mem = context.get("injected_memory", {})
+        if isinstance(mem, dict):
+            ans = mem.get("answer", "")
+            if ans and ans != "No memory found.":
+                sys_parts.append(f"[Darkclaw Memory]\n{ans}")
+
+        doc = context.get("doc_memory", {})
+        if isinstance(doc, dict):
+            doc_ans = doc.get("answer", "")
+            if doc_ans and doc_ans != "No memory found.":
+                sys_parts.append(f"[Uploaded Document Context]\n{doc_ans}")
+
         if correction:
-            messages.append({"role": "system", "content": correction})
+            sys_parts.append(correction)
+
+        messages = []
+        if sys_parts:
+            messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
         messages.append({"role": "user", "content": task})
 
         # Pass api_base for Ollama so litellm routes to the configured server

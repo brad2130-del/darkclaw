@@ -100,6 +100,14 @@ class Orchestrator:
             emit(EventType.MEMORY_QUERY, target_id,
                  query=task[:80], tier=qr._classify_tier(), method=qr.method)
 
+            # Cross-query the shared doc namespace so uploaded documents
+            # are visible to every agent regardless of who ingested them.
+            doc_qr = self.memory.query(task, "docs")
+            if doc_qr.confidence > 0.1 and doc_qr.answer != "No memory found.":
+                context["doc_memory"] = doc_qr.to_tool_result()
+                emit(EventType.MEMORY_HIT, "docs",
+                     query=task[:80], tier=doc_qr._classify_tier(), method=doc_qr.method)
+
         retry_fn = lambda: agent.run(task, context)
 
         # ── run, then self-heal if it breaks ────────────────────────────

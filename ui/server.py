@@ -218,6 +218,61 @@ async def delete_doc(doc_id: str):
     return {"ok": ok}
 
 
+@app.post("/api/docs/{doc_id}/analyze")
+async def analyze_doc(doc_id: str):
+    """
+    Self-improvement: compare an uploaded doc against Darkclaw's current
+    config/codebase and propose concrete improvements.
+    Uses the coder agent (deepseek + Claude teacher).
+    """
+    docs = {d["doc_id"]: d for d in list_documents()}
+    if doc_id not in docs:
+        return JSONResponse({"ok": False, "error": "doc not found"}, status_code=404)
+
+    record = docs[doc_id]
+    filename = record["filename"]
+
+    # Retrieve the doc's chunks from memory
+    doc_qr = orc.memory.query(filename, "docs")
+    doc_text = doc_qr.answer if doc_qr.answer != "No memory found." else ""
+
+    # Read Darkclaw's own relevant source files for comparison context
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    own_files = []
+    for rel in ["core/orchestrator.py", "agents/base_agent.py",
+                "core/doc_store.py", ".env"]:
+        fpath = os.path.join(root, rel)
+        if os.path.exists(fpath):
+            try:
+                content = open(fpath).read()[:3000]   # cap per file
+                own_files.append(f"=== {rel} ===\n{content}")
+            except Exception:
+                pass
+
+    own_context = "\n\n".join(own_files)
+
+    task = (
+        f"You are reviewing an uploaded document against the Darkclaw AI harness "
+        f"codebase to suggest concrete self-improvements.\n\n"
+        f"UPLOADED FILE: {filename}\n"
+        f"CONTENT:\n{doc_text[:2000]}\n\n"
+        f"CURRENT DARKCLAW CONFIG:\n{own_context[:3000]}\n\n"
+        f"Task: Compare the uploaded document against the current Darkclaw config. "
+        f"Identify gaps, conflicts, or improvements. Output a concise numbered list "
+        f"of specific, actionable changes Darkclaw could make to better align with "
+        f"or incorporate this document. Be specific about which file/setting to change."
+    )
+
+    result = await orc.submit(task, agent_id="coder")
+    return {
+        "ok": result.success,
+        "filename": filename,
+        "analysis": result.output,
+        "agent_id": result.agent_id,
+        "duration_ms": round(result.duration_ms, 1),
+    }
+
+
 # ── Setup / config API ─────────────────────────────────────────────────────
 
 @app.get("/api/models")
