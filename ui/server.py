@@ -39,6 +39,7 @@ if os.path.exists(CONFIG_PATH):
 else:
     load_dotenv(ENV_PATH)
 
+import httpx
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from pydantic import BaseModel
@@ -81,14 +82,18 @@ class SubmitIn(BaseModel):
 
 
 class SetupIn(BaseModel):
-    backend: str                                      # anthropic | ollama | both
+    providers: list[str]                              # ["anthropic","openai","xai","gemini","mistral","ollama"]
     anthropic_key: str = ""
-    ollama_url: str = "http://localhost:11434"
+    openai_key:    str = ""
+    xai_key:       str = ""
+    gemini_key:    str = ""
+    mistral_key:   str = ""
+    ollama_url:    str = "http://localhost:11434"
     default_model: str = ""
 
 
 class TestConnIn(BaseModel):
-    type: str                                         # anthropic | ollama
+    type: str                                         # anthropic | openai | xai | gemini | mistral | ollama
     key: str = ""
     url: str = ""
 
@@ -190,31 +195,80 @@ async def health():
 @app.get("/api/models")
 async def list_models():
     """List available models from all configured backends."""
-    import httpx
-    result: dict = {"anthropic": [], "ollama": [], "configured": is_configured()}
+    result: dict = {"configured": is_configured(), "providers": {}}
 
     if os.getenv("ANTHROPIC_API_KEY"):
-        result["anthropic"] = ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"]
+        result["providers"]["anthropic"] = ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"]
+    if os.getenv("OPENAI_API_KEY"):
+        result["providers"]["openai"] = ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo"]
+    if os.getenv("XAI_API_KEY"):
+        result["providers"]["xai"] = ["xai/grok-3-mini", "xai/grok-3"]
+    if os.getenv("GEMINI_API_KEY"):
+        result["providers"]["gemini"] = ["gemini/gemini-2.0-flash-lite", "gemini/gemini-2.0-flash", "gemini/gemini-1.5-pro"]
+    if os.getenv("MISTRAL_API_KEY"):
+        result["providers"]["mistral"] = ["mistral/mistral-small-latest", "mistral/mistral-large-latest"]
 
     ollama_url = os.getenv("OLLAMA_BASE_URL", "").rstrip("/")
     if ollama_url:
         try:
             async with httpx.AsyncClient(timeout=4.0) as client:
                 r = await client.get(f"{ollama_url}/api/tags")
-                result["ollama"] = [m["name"] for m in r.json().get("models", [])]
+                result["providers"]["ollama"] = [m["name"] for m in r.json().get("models", [])]
         except Exception:
-            pass
+            result["providers"]["ollama"] = []
 
     return result
+
+
+# Known model lists for cloud providers (returned without making a billable call)
+_CLOUD_MODELS = {
+    "anthropic": ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"],
+    "openai":    ["gpt-4o-mini", "gpt-4o", "gpt-4-turbo"],
+    "xai":       ["xai/grok-3-mini", "xai/grok-3"],
+    "gemini":    ["gemini/gemini-2.0-flash-lite", "gemini/gemini-2.0-flash", "gemini/gemini-1.5-pro"],
+    "mistral":   ["mistral/mistral-small-latest", "mistral/mistral-large-latest"],
+}
+
+# Endpoints to validate each cloud API key with a lightweight call
+async def _probe_cloud(client: "httpx.AsyncClient", prov: str, key: str) -> dict:
+    headers = {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    try:
+        if prov == "anthropic":
+            r = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={"x-api-key": key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+                json={"model": "claude-haiku-4-5-20251001", "max_tokens": 1, "messages": [{"role": "user", "content": "hi"}]},
+                timeout=8.0,
+            )
+            ok = r.status_code in (200, 400)   # 400 = bad request but key valid
+        elif prov == "openai":
+            r = await client.get("https://api.openai.com/v1/models", headers=headers, timeout=8.0)
+            ok = r.status_code == 200
+        elif prov == "xai":
+            r = await client.get("https://api.x.ai/v1/models", headers=headers, timeout=8.0)
+            ok = r.status_code == 200
+        elif prov == "gemini":
+            r = await client.get(
+                f"https://generativelanguage.googleapis.com/v1beta/models?key={key}", timeout=8.0
+            )
+            ok = r.status_code == 200
+        elif prov == "mistral":
+            r = await client.get("https://api.mistral.ai/v1/models", headers=headers, timeout=8.0)
+            ok = r.status_code == 200
+        else:
+            return {"ok": False, "error": "unknown provider"}
+        if ok:
+            return {"ok": True, "models": _CLOUD_MODELS.get(prov, [])}
+        return {"ok": False, "error": f"HTTP {r.status_code}"}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 
 @app.post("/api/test-connection")
 async def test_connection(body: TestConnIn):
     """Probe a model backend — called by the setup wizard before saving."""
-    import httpx
-
     if body.type == "ollama":
-        url = body.url.rstrip("/") or "http://localhost:11434"
+        url = (body.url or "http://localhost:11434").rstrip("/")
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 r = await client.get(f"{url}/api/tags")
@@ -223,20 +277,11 @@ async def test_connection(body: TestConnIn):
         except Exception as e:
             return {"ok": False, "error": str(e), "models": []}
 
-    if body.type == "anthropic":
-        try:
-            import anthropic
-            client = anthropic.Anthropic(api_key=body.key)
-            client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=5,
-                messages=[{"role": "user", "content": "hi"}],
-            )
-            return {"ok": True, "models": ["claude-haiku-4-5", "claude-sonnet-4-6", "claude-opus-4-8"]}
-        except Exception as e:
-            return {"ok": False, "error": str(e), "models": []}
+    if body.type in _CLOUD_MODELS:
+        async with httpx.AsyncClient() as client:
+            return await _probe_cloud(client, body.type, body.key)
 
-    return {"ok": False, "error": "unknown backend type", "models": []}
+    return {"ok": False, "error": "unknown provider type", "models": []}
 
 
 @app.post("/api/setup")
@@ -245,22 +290,32 @@ async def do_setup(body: SetupIn):
     cfg_dir = os.path.dirname(CONFIG_PATH)
     os.makedirs(cfg_dir, exist_ok=True)
 
-    lines = ["# Darkclaw configuration — written by setup wizard\n", f"PORT=7430\n"]
+    lines = ["# Darkclaw configuration — written by setup wizard\n", "PORT=7430\n"]
 
-    if body.backend in ("anthropic", "both") and body.anthropic_key:
-        lines.append(f"ANTHROPIC_API_KEY={body.anthropic_key}\n")
+    key_map = {
+        "anthropic": ("ANTHROPIC_API_KEY", body.anthropic_key),
+        "openai":    ("OPENAI_API_KEY",    body.openai_key),
+        "xai":       ("XAI_API_KEY",       body.xai_key),
+        "gemini":    ("GEMINI_API_KEY",    body.gemini_key),
+        "mistral":   ("MISTRAL_API_KEY",   body.mistral_key),
+    }
+    has_cloud = False
+    for prov in body.providers:
+        if prov in key_map:
+            env_var, val = key_map[prov]
+            if val:
+                lines.append(f"{env_var}={val}\n")
+                has_cloud = True
+        elif prov == "ollama" and body.ollama_url:
+            lines.append(f"OLLAMA_BASE_URL={body.ollama_url}\n")
+
+    if has_cloud:
         lines.append("DARKCLAW_USE_LLM=1\n")
-
-    if body.backend in ("ollama", "both") and body.ollama_url:
-        lines.append(f"OLLAMA_BASE_URL={body.ollama_url}\n")
-
     if body.default_model:
         lines.append(f"DEFAULT_MODEL={body.default_model}\n")
 
     with open(CONFIG_PATH, "w") as f:
         f.writelines(lines)
 
-    # Reload into the running process
     load_dotenv(CONFIG_PATH, override=True)
-
     return {"ok": True, "config_path": CONFIG_PATH}

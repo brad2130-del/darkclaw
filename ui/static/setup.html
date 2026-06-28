@@ -27,13 +27,14 @@ html,body{height:100%;background:var(--void);color:var(--text);font-family:var(-
 
 body {
   display:flex;align-items:center;justify-content:center;min-height:100vh;
-  background: radial-gradient(ellipse at 30% 20%, rgba(232,152,144,0.06) 0%, transparent 60%),
-              radial-gradient(ellipse at 70% 80%, rgba(120,168,232,0.04) 0%, transparent 60%),
-              var(--void);
+  background:
+    radial-gradient(ellipse at 25% 20%, rgba(232,152,144,0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 75% 80%, rgba(120,168,232,0.04) 0%, transparent 55%),
+    var(--void);
 }
 
 .wizard {
-  width:520px;
+  width:560px;
   background:var(--panel);
   border:1px solid var(--border);
   border-radius:12px;
@@ -41,327 +42,436 @@ body {
   box-shadow:0 24px 80px rgba(0,0,0,0.5);
 }
 
-/* ── Header ── */
 .wiz-header {
-  padding:28px 32px 24px;
+  padding:28px 32px 22px;
   border-bottom:1px solid var(--border);
   background:linear-gradient(135deg,#1a100c 0%,#160f12 100%);
 }
-.wiz-logo {
-  display:flex;align-items:center;gap:12px;margin-bottom:16px;
-}
-.wiz-logo svg { width:32px;height:32px;flex-shrink:0; }
+.wiz-logo { display:flex;align-items:center;gap:12px;margin-bottom:12px; }
+.wiz-logo svg { width:30px;height:30px;flex-shrink:0; }
 .wiz-logo-text { font-size:20px;font-weight:700; }
 .wiz-logo-text span { color:var(--rose); }
-.wiz-tagline { font-size:13px;color:var(--muted); }
+.wiz-tagline { font-size:13px;color:var(--muted);line-height:1.5; }
 
-/* ── Steps indicator ── */
 .steps {
-  display:flex;align-items:center;gap:0;padding:0 32px;
+  display:flex;
   border-bottom:1px solid var(--border);
   background:var(--surface);
 }
 .step-dot {
-  flex:1;padding:12px 0;text-align:center;
+  flex:1;padding:11px 0;text-align:center;
   font-family:var(--font-m);font-size:10px;letter-spacing:0.08em;
-  color:var(--muted);border-bottom:2px solid transparent;
-  transition:all 0.2s;cursor:default;
+  color:var(--muted);border-bottom:2px solid transparent;transition:all 0.2s;
 }
 .step-dot.active { color:var(--text);border-bottom-color:var(--rose); }
-.step-dot.done   { color:var(--synapse);border-bottom-color:transparent; }
+.step-dot.done   { color:var(--synapse); }
 
-/* ── Body ── */
-.wiz-body { padding:32px; }
-
+.wiz-body { padding:30px 32px; }
 .step-panel { display:none; }
 .step-panel.active { display:block; }
 
-h2 { font-size:18px;font-weight:600;margin-bottom:6px; }
-.sub { font-size:13px;color:var(--muted);margin-bottom:24px;line-height:1.6; }
+h2 { font-size:17px;font-weight:600;margin-bottom:5px; }
+.sub { font-size:13px;color:var(--muted);margin-bottom:22px;line-height:1.6; }
 
-/* Backend choice cards */
-.option-grid { display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:8px; }
-.option-card {
-  border:1px solid var(--border);border-radius:8px;padding:16px 10px;
-  text-align:center;cursor:pointer;transition:all 0.15s;background:var(--surface);
+/* ── Provider grid (multi-select) ── */
+.provider-grid {
+  display:grid;
+  grid-template-columns:1fr 1fr 1fr;
+  gap:9px;
+  margin-bottom:6px;
 }
-.option-card:hover { border-color:rgba(232,152,144,0.4); }
-.option-card.selected { border-color:var(--rose);background:rgba(232,152,144,0.06); }
-.opt-icon { font-size:24px;margin-bottom:8px; }
-.opt-title { font-size:12px;font-weight:600;margin-bottom:2px; }
-.opt-sub { font-size:10px;color:var(--muted);line-height:1.4; }
+.prov-card {
+  border:1px solid var(--border);border-radius:8px;
+  padding:14px 10px 12px;text-align:center;cursor:pointer;
+  transition:all 0.15s;background:var(--surface);position:relative;
+}
+.prov-card:hover { border-color:rgba(232,152,144,0.35); }
+.prov-card.selected {
+  border-color:var(--rose);background:rgba(232,152,144,0.06);
+}
+.prov-card.selected::after {
+  content:'✓';position:absolute;top:6px;right:8px;
+  font-size:10px;color:var(--rose);font-weight:700;
+}
+.prov-icon { font-size:22px;margin-bottom:7px; }
+.prov-title { font-size:11px;font-weight:600;margin-bottom:2px; }
+.prov-sub { font-size:10px;color:var(--muted);line-height:1.3; }
 
-/* Form fields */
-.field { margin-bottom:18px; }
-.field label { display:block;font-size:11px;font-family:var(--font-m);letter-spacing:0.08em;color:var(--muted);margin-bottom:6px;text-transform:uppercase; }
+.hint-row { font-size:11px;color:var(--muted);margin-top:4px; }
+
+/* ── Fields ── */
+.field { margin-bottom:16px; }
+.field label {
+  display:block;font-size:10px;font-family:var(--font-m);
+  letter-spacing:0.08em;color:var(--muted);margin-bottom:5px;text-transform:uppercase;
+}
 .field input {
   width:100%;background:var(--surface);border:1px solid var(--border);
   border-radius:6px;color:var(--text);font-family:var(--font-m);font-size:12px;
-  padding:10px 12px;outline:none;transition:border-color 0.15s;
+  padding:9px 12px;outline:none;transition:border-color 0.15s;
 }
 .field input:focus { border-color:rgba(232,152,144,0.5); }
 .field input::placeholder { color:var(--muted); }
 .field-hint { font-size:11px;color:var(--muted);margin-top:4px; }
 .field-hint a { color:var(--data);text-decoration:none; }
 .field-hint a:hover { text-decoration:underline; }
-
+.field-group {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:16px;margin-bottom:12px;
+}
+.field-group-label {
+  font-size:11px;font-weight:600;color:var(--rose);margin-bottom:12px;
+  display:flex;align-items:center;gap:6px;
+}
 .hidden { display:none!important; }
 
-/* Test result */
-.test-box {
-  background:var(--surface);border:1px solid var(--border);border-radius:8px;
-  padding:16px;margin-bottom:20px;min-height:60px;
+/* ── Test panel ── */
+.test-area {
+  background:var(--surface);border:1px solid var(--border);
+  border-radius:8px;padding:16px;margin-bottom:18px;
 }
-.test-status { font-size:12px;color:var(--muted);font-family:var(--font-m); }
-.test-status.ok   { color:var(--synapse); }
-.test-status.fail { color:var(--fault); }
+.test-row {
+  display:flex;align-items:center;gap:10px;
+  font-family:var(--font-m);font-size:11px;padding:4px 0;
+  border-bottom:1px solid var(--border);
+}
+.test-row:last-child { border-bottom:none; }
+.test-icon { width:16px;text-align:center;flex-shrink:0; }
+.test-name { width:110px;color:var(--muted); }
+.test-result { flex:1; }
+.test-result.ok   { color:var(--synapse); }
+.test-result.fail { color:var(--fault); }
+.test-result.wait { color:var(--amber); }
 
-.model-list { margin-top:10px; }
+.model-chips { margin-top:10px; }
 .model-chip {
-  display:inline-block;background:rgba(120,168,232,0.12);border:1px solid rgba(120,168,232,0.25);
-  border-radius:4px;padding:2px 8px;font-size:10px;font-family:var(--font-m);
-  color:var(--data);margin:2px;
+  display:inline-block;background:rgba(120,168,232,0.10);
+  border:1px solid rgba(120,168,232,0.2);border-radius:4px;
+  padding:2px 7px;font-size:10px;font-family:var(--font-m);
+  color:var(--data);margin:2px;cursor:pointer;
+}
+.model-chip.chosen {
+  background:rgba(232,152,144,0.12);border-color:rgba(232,152,144,0.4);color:var(--rose);
 }
 
-.default-model-row { margin-top:16px; }
+/* ── Done ── */
+.done-wrap { text-align:center;padding:8px 0 4px; }
+.done-wrap .done-icon { font-size:44px;margin-bottom:14px; }
+.done-title { font-size:18px;font-weight:600;margin-bottom:6px; }
+.done-sub { font-size:13px;color:var(--muted);line-height:1.6; }
 
-/* Buttons */
-.btn-row { display:flex;justify-content:space-between;align-items:center;margin-top:28px; }
+/* ── Buttons ── */
+.btn-row { display:flex;justify-content:space-between;align-items:center;margin-top:26px; }
 .btn {
-  padding:10px 24px;border-radius:6px;font-family:var(--font-d);font-size:13px;
-  font-weight:600;cursor:pointer;border:none;transition:all 0.15s;
+  padding:10px 22px;border-radius:6px;font-family:var(--font-d);
+  font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all 0.15s;
 }
 .btn-primary { background:var(--rose);color:#1a0808; }
 .btn-primary:hover { background:#f0a8a0; }
 .btn-primary:disabled { opacity:0.4;cursor:not-allowed; }
 .btn-ghost { background:transparent;border:1px solid var(--border);color:var(--muted); }
-.btn-ghost:hover { border-color:var(--border-hi);color:var(--text); }
+.btn-ghost:hover { border-color:#3e2e22;color:var(--text); }
 
-.spinner { display:inline-block;width:14px;height:14px;border:2px solid rgba(232,152,144,0.2);border-top-color:var(--rose);border-radius:50%;animation:spin 0.7s linear infinite;margin-right:6px;vertical-align:middle; }
+.spinner {
+  display:inline-block;width:12px;height:12px;
+  border:2px solid rgba(232,152,144,0.2);border-top-color:var(--rose);
+  border-radius:50%;animation:spin 0.7s linear infinite;
+  margin-right:5px;vertical-align:middle;
+}
 @keyframes spin { to { transform:rotate(360deg); } }
-
-.done-icon { text-align:center;font-size:48px;margin-bottom:16px; }
-.done-title { text-align:center;font-size:20px;font-weight:600;margin-bottom:8px; }
-.done-sub { text-align:center;font-size:13px;color:var(--muted);margin-bottom:28px;line-height:1.6; }
 </style>
 </head>
 <body>
 <div class="wizard">
 
-  <!-- Header -->
   <div class="wiz-header">
     <div class="wiz-logo">
-      <svg viewBox="0 0 32 32" fill="none">
-        <path d="M16 3 C11 8, 7 13, 9 22" stroke="#e89890" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-        <path d="M16 3 C16 11, 16 16, 16 24" stroke="#e89890" stroke-width="3" stroke-linecap="round" fill="none"/>
-        <path d="M16 3 C21 8, 25 13, 23 22" stroke="#e89890" stroke-width="2.5" stroke-linecap="round" fill="none"/>
-        <circle cx="16" cy="3" r="3" fill="#e89890"/>
+      <svg viewBox="0 0 30 30" fill="none">
+        <path d="M15 3C11 7,7 12,9 21" stroke="#e89890" stroke-width="2.5" stroke-linecap="round"/>
+        <path d="M15 3C15 10,15 15,15 23" stroke="#e89890" stroke-width="3" stroke-linecap="round"/>
+        <path d="M15 3C19 7,23 12,21 21" stroke="#e89890" stroke-width="2.5" stroke-linecap="round"/>
+        <circle cx="15" cy="3" r="2.8" fill="#e89890"/>
       </svg>
       <div class="wiz-logo-text">Dark<span>Claw</span></div>
     </div>
-    <div class="wiz-tagline">Self-healing AI harness for your business — let's get Rosie running.</div>
+    <div class="wiz-tagline">Let's connect your AI. Pick any providers you have access to — you can add more later.</div>
   </div>
 
-  <!-- Step tabs -->
   <div class="steps">
-    <div class="step-dot active" id="tab-1">1 · Choose AI</div>
-    <div class="step-dot" id="tab-2">2 · Configure</div>
-    <div class="step-dot" id="tab-3">3 · Test & Done</div>
+    <div class="step-dot active" id="tab-1">1 · Providers</div>
+    <div class="step-dot" id="tab-2">2 · API Keys</div>
+    <div class="step-dot" id="tab-3">3 · Test & Finish</div>
   </div>
 
-  <!-- Step 1: Choose backend -->
   <div class="wiz-body">
-  <div class="step-panel active" id="panel-1">
-    <h2>How will Rosie think?</h2>
-    <p class="sub">Pick where your AI runs. You can change this later in Settings.</p>
-    <div class="option-grid">
-      <div class="option-card" data-val="anthropic" onclick="selectBackend('anthropic',this)">
-        <div class="opt-icon">☁️</div>
-        <div class="opt-title">Cloud AI</div>
-        <div class="opt-sub">Anthropic Claude<br>API key required</div>
+
+    <!-- ── Step 1: Choose providers ── -->
+    <div class="step-panel active" id="panel-1">
+      <h2>Which AI providers do you have?</h2>
+      <p class="sub">Select all that apply. You can use multiple at once — Darkclaw will route tasks to the best available one.</p>
+
+      <div class="provider-grid">
+        <div class="prov-card" data-prov="anthropic" onclick="toggleProv('anthropic',this)">
+          <div class="prov-icon">🤖</div>
+          <div class="prov-title">Anthropic</div>
+          <div class="prov-sub">Claude Haiku, Sonnet, Opus</div>
+        </div>
+        <div class="prov-card" data-prov="openai" onclick="toggleProv('openai',this)">
+          <div class="prov-icon">💬</div>
+          <div class="prov-title">OpenAI</div>
+          <div class="prov-sub">GPT-4o, GPT-4o Mini</div>
+        </div>
+        <div class="prov-card" data-prov="xai" onclick="toggleProv('xai',this)">
+          <div class="prov-icon">𝕏</div>
+          <div class="prov-title">xAI / Grok</div>
+          <div class="prov-sub">Grok-3, Grok-3 Mini</div>
+        </div>
+        <div class="prov-card" data-prov="gemini" onclick="toggleProv('gemini',this)">
+          <div class="prov-icon">✦</div>
+          <div class="prov-title">Google Gemini</div>
+          <div class="prov-sub">Gemini 2.0 Flash, 1.5 Pro</div>
+        </div>
+        <div class="prov-card" data-prov="mistral" onclick="toggleProv('mistral',this)">
+          <div class="prov-icon">🌬️</div>
+          <div class="prov-title">Mistral</div>
+          <div class="prov-sub">Mistral Large, Small</div>
+        </div>
+        <div class="prov-card" data-prov="ollama" onclick="toggleProv('ollama',this)">
+          <div class="prov-icon">🏠</div>
+          <div class="prov-title">Local Ollama</div>
+          <div class="prov-sub">Your own machine, no API key</div>
+        </div>
       </div>
-      <div class="option-card" data-val="ollama" onclick="selectBackend('ollama',this)">
-        <div class="opt-icon">🏠</div>
-        <div class="opt-title">Local / Homelab</div>
-        <div class="opt-sub">Ollama on your machine or LAN server</div>
-      </div>
-      <div class="option-card" data-val="both" onclick="selectBackend('both',this)">
-        <div class="opt-icon">⚡</div>
-        <div class="opt-title">Both</div>
-        <div class="opt-sub">Cloud fallback when local fails</div>
+      <div class="hint-row">No account yet? All cloud providers have free tiers to get started.</div>
+
+      <div class="btn-row">
+        <span></span>
+        <button class="btn btn-primary" id="btn-next-1" onclick="goStep(2)" disabled>Next →</button>
       </div>
     </div>
-    <div class="btn-row">
-      <span></span>
-      <button class="btn btn-primary" id="btn-step1-next" onclick="goStep(2)" disabled>Next →</button>
+
+    <!-- ── Step 2: API keys ── -->
+    <div class="step-panel" id="panel-2">
+      <h2>Enter your credentials</h2>
+      <p class="sub">Your keys are saved locally and never shared.</p>
+
+      <div id="grp-anthropic" class="field-group hidden">
+        <div class="field-group-label">🤖 Anthropic</div>
+        <div class="field">
+          <label>API Key</label>
+          <input type="password" id="key-anthropic" placeholder="sk-ant-api03-…" autocomplete="off">
+          <div class="field-hint"><a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> → API Keys</div>
+        </div>
+      </div>
+
+      <div id="grp-openai" class="field-group hidden">
+        <div class="field-group-label">💬 OpenAI</div>
+        <div class="field">
+          <label>API Key</label>
+          <input type="password" id="key-openai" placeholder="sk-…" autocomplete="off">
+          <div class="field-hint"><a href="https://platform.openai.com/api-keys" target="_blank">platform.openai.com</a> → API Keys</div>
+        </div>
+      </div>
+
+      <div id="grp-xai" class="field-group hidden">
+        <div class="field-group-label">𝕏 xAI / Grok</div>
+        <div class="field">
+          <label>API Key</label>
+          <input type="password" id="key-xai" placeholder="xai-…" autocomplete="off">
+          <div class="field-hint"><a href="https://console.x.ai" target="_blank">console.x.ai</a> → API Keys</div>
+        </div>
+      </div>
+
+      <div id="grp-gemini" class="field-group hidden">
+        <div class="field-group-label">✦ Google Gemini</div>
+        <div class="field">
+          <label>API Key</label>
+          <input type="password" id="key-gemini" placeholder="AIza…" autocomplete="off">
+          <div class="field-hint"><a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> → Get API Key</div>
+        </div>
+      </div>
+
+      <div id="grp-mistral" class="field-group hidden">
+        <div class="field-group-label">🌬️ Mistral</div>
+        <div class="field">
+          <label>API Key</label>
+          <input type="password" id="key-mistral" placeholder="…" autocomplete="off">
+          <div class="field-hint"><a href="https://console.mistral.ai/api-keys" target="_blank">console.mistral.ai</a> → API Keys</div>
+        </div>
+      </div>
+
+      <div id="grp-ollama" class="field-group hidden">
+        <div class="field-group-label">🏠 Local Ollama</div>
+        <div class="field">
+          <label>Ollama URL</label>
+          <input type="text" id="key-ollama" value="http://localhost:11434" placeholder="http://localhost:11434">
+          <div class="field-hint">Default: <code style="color:var(--data)">http://localhost:11434</code> — make sure Ollama is running</div>
+        </div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
+        <button class="btn btn-primary" onclick="goStep(3)">Test Connection →</button>
+      </div>
     </div>
+
+    <!-- ── Step 3: Test + finish ── -->
+    <div class="step-panel" id="panel-3">
+      <h2>Testing connections…</h2>
+      <p class="sub" id="test-sub">Checking each provider and discovering available models.</p>
+
+      <div class="test-area" id="test-area"></div>
+
+      <div class="field hidden" id="default-model-field">
+        <label>Default Model</label>
+        <input type="text" id="in-default-model" placeholder="e.g. gpt-4o-mini or claude-haiku-4-5">
+        <div class="field-hint">The model Rosie uses for most tasks. Click a chip above to select, or type your own.</div>
+        <div class="model-chips" id="model-chips"></div>
+      </div>
+
+      <div class="done-wrap hidden" id="done-wrap">
+        <div class="done-icon">🌿</div>
+        <div class="done-title">Rosie is ready!</div>
+        <div class="done-sub">Your AI harness is configured.<br>Head to the dashboard to get started.</div>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="btn-back-3" onclick="goStep(2)">← Back</button>
+        <button class="btn btn-primary" id="btn-finish" onclick="finish()" disabled>Open Dashboard →</button>
+      </div>
+    </div>
+
   </div>
-
-  <!-- Step 2: Credentials -->
-  <div class="step-panel" id="panel-2">
-    <h2>Connect your AI</h2>
-    <p class="sub">Fill in what you need below. Nothing is sent anywhere except to your chosen provider.</p>
-
-    <div id="field-anthropic">
-      <div class="field">
-        <label>Anthropic API Key</label>
-        <input type="password" id="in-apikey" placeholder="sk-ant-api03-..." autocomplete="off">
-        <div class="field-hint">Get one free at <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></div>
-      </div>
-    </div>
-
-    <div id="field-ollama">
-      <div class="field">
-        <label>Ollama URL</label>
-        <input type="text" id="in-ollama" value="http://localhost:11434" placeholder="http://localhost:11434">
-        <div class="field-hint">Local: <code style="color:var(--data)">http://localhost:11434</code> — Homelab: use your LAN IP, e.g. <code style="color:var(--data)">http://192.168.1.210:11434</code></div>
-      </div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-ghost" onclick="goStep(1)">← Back</button>
-      <button class="btn btn-primary" onclick="goStep(3)">Test Connection →</button>
-    </div>
-  </div>
-
-  <!-- Step 3: Test + Finish -->
-  <div class="step-panel" id="panel-3">
-    <h2>Testing your setup…</h2>
-    <p class="sub" id="test-sub">Checking connectivity and available models.</p>
-
-    <div class="test-box" id="test-box">
-      <div class="test-status" id="test-status"><span class="spinner"></span> Connecting…</div>
-      <div class="model-list" id="model-list"></div>
-    </div>
-
-    <div id="default-model-row" class="field hidden">
-      <label>Default Model</label>
-      <input type="text" id="in-default-model" placeholder="e.g. llama3.1:latest or claude-haiku-4-5">
-      <div class="field-hint">The model Rosie will use for most tasks. You can always change this later.</div>
-    </div>
-
-    <div id="done-panel" class="hidden">
-      <div class="done-icon">🌿</div>
-      <div class="done-title">Rosie is ready!</div>
-      <div class="done-sub">Your AI harness is configured.<br>Head to the dashboard to get started.</div>
-    </div>
-
-    <div class="btn-row">
-      <button class="btn btn-ghost" onclick="goStep(2)" id="btn-back-3">← Back</button>
-      <button class="btn btn-primary" id="btn-finish" onclick="finish()" disabled>Open Dashboard →</button>
-    </div>
-  </div>
-  </div><!-- wiz-body -->
-
-</div><!-- wizard -->
+</div>
 
 <script>
-let backend = null;
-let testOk = false;
-let discoveredModels = [];
+const PROVIDERS = {
+  anthropic: { label:'Anthropic Claude',    icon:'🤖' },
+  openai:    { label:'OpenAI GPT',          icon:'💬' },
+  xai:       { label:'xAI / Grok',          icon:'𝕏'  },
+  gemini:    { label:'Google Gemini',       icon:'✦'  },
+  mistral:   { label:'Mistral',             icon:'🌬️' },
+  ollama:    { label:'Local Ollama',        icon:'🏠' },
+};
 
-function selectBackend(val, el) {
-  backend = val;
-  document.querySelectorAll('.option-card').forEach(c => c.classList.remove('selected'));
-  el.classList.add('selected');
-  document.getElementById('btn-step1-next').disabled = false;
+let selected = new Set();
+let allModels = [];   // [{prov, model}]
+let anyOk = false;
+
+function toggleProv(prov, el) {
+  if(selected.has(prov)) { selected.delete(prov); el.classList.remove('selected'); }
+  else                   { selected.add(prov);    el.classList.add('selected'); }
+  document.getElementById('btn-next-1').disabled = selected.size === 0;
 }
 
 function goStep(n) {
-  // Update tabs
   for(let i=1;i<=3;i++){
-    const t = document.getElementById('tab-'+i);
-    const p = document.getElementById('panel-'+i);
-    t.classList.remove('active','done');
-    p.classList.remove('active');
-    if(i < n) t.classList.add('done');
-    if(i === n){ t.classList.add('active'); p.classList.add('active'); }
+    document.getElementById('tab-'+i).className = 'step-dot' + (i<n?' done':i===n?' active':'');
+    document.getElementById('panel-'+i).className = 'step-panel' + (i===n?' active':'');
   }
-
-  if(n === 2) setupStep2();
-  if(n === 3) runTest();
+  if(n===2) setupStep2();
+  if(n===3) runTest();
 }
 
 function setupStep2() {
-  const fa = document.getElementById('field-anthropic');
-  const fo = document.getElementById('field-ollama');
-  fa.style.display = (backend === 'anthropic' || backend === 'both') ? '' : 'none';
-  fo.style.display = (backend === 'ollama'    || backend === 'both') ? '' : 'none';
+  ['anthropic','openai','xai','gemini','mistral','ollama'].forEach(p => {
+    document.getElementById('grp-'+p).classList.toggle('hidden', !selected.has(p));
+  });
 }
 
 async function runTest() {
-  testOk = false;
+  anyOk = false; allModels = [];
   document.getElementById('btn-finish').disabled = true;
-  document.getElementById('done-panel').classList.add('hidden');
-  document.getElementById('default-model-row').classList.add('hidden');
-  document.getElementById('model-list').innerHTML = '';
-  document.getElementById('test-status').className = 'test-status';
-  document.getElementById('test-status').innerHTML = '<span class="spinner"></span> Connecting…';
-  document.getElementById('test-sub').textContent = 'Checking connectivity and available models.';
-  document.getElementById('btn-back-3').disabled = false;
+  document.getElementById('done-wrap').classList.add('hidden');
+  document.getElementById('default-model-field').classList.add('hidden');
+  document.getElementById('model-chips').innerHTML = '';
+  document.getElementById('test-sub').textContent = 'Checking each provider and discovering available models.';
 
-  const results = [];
+  const area = document.getElementById('test-area');
+  area.innerHTML = '';
 
-  if(backend === 'anthropic' || backend === 'both') {
-    const key = document.getElementById('in-apikey').value.trim();
-    if(key) {
-      const r = await testConn('anthropic', key, '');
-      results.push({ type:'anthropic', ...r });
+  const tests = [];
+  selected.forEach(prov => {
+    const key = prov === 'ollama'
+      ? document.getElementById('key-ollama')?.value?.trim() || 'http://localhost:11434'
+      : document.getElementById('key-'+prov)?.value?.trim() || '';
+    const row = makeTestRow(prov);
+    area.appendChild(row.el);
+    tests.push({ prov, key, row });
+  });
+
+  await Promise.all(tests.map(async ({ prov, key, row }) => {
+    const r = await testConn(prov, key);
+    if(r.ok) {
+      row.result.className = 'test-result ok';
+      row.result.textContent = '✓ Connected' + (r.models?.length ? ` · ${r.models.length} model${r.models.length>1?'s':''}` : '');
+      row.icon.textContent = '✓';
+      anyOk = true;
+      (r.models || []).forEach(m => allModels.push({ prov, model: m }));
+    } else {
+      row.result.className = 'test-result fail';
+      row.result.textContent = '✗ ' + (r.error || 'unreachable');
+      row.icon.textContent = '✗';
     }
-  }
+  }));
 
-  if(backend === 'ollama' || backend === 'both') {
-    const url = document.getElementById('in-ollama').value.trim() || 'http://localhost:11434';
-    const r = await testConn('ollama', '', url);
-    results.push({ type:'ollama', ...r });
-    if(r.ok) discoveredModels = r.models || [];
-  }
-
-  const allOk = results.length > 0 && results.some(r=>r.ok);
-  testOk = allOk;
-
-  if(allOk) {
-    const lines = results.map(r =>
-      r.ok ? `<span style="color:var(--synapse)">✓ ${r.type === 'anthropic' ? 'Anthropic Claude' : 'Ollama'} connected</span>`
-            : `<span style="color:var(--fault)">✗ ${r.type} — ${r.error||'unreachable'}</span>`
-    ).join('<br>');
-    document.getElementById('test-status').innerHTML = lines;
-    document.getElementById('test-status').className = 'test-status ok';
-
-    // Show discovered models
-    if(discoveredModels.length) {
-      document.getElementById('model-list').innerHTML =
-        '<div style="margin-top:10px;font-size:10px;color:var(--muted);font-family:var(--font-m);margin-bottom:4px;">AVAILABLE MODELS</div>' +
-        discoveredModels.map(m=>`<span class="model-chip">${m}</span>`).join('');
-      const dm = document.getElementById('in-default-model');
-      if(!dm.value) dm.value = discoveredModels[0] || '';
-    } else if(backend !== 'ollama') {
-      document.getElementById('in-default-model').value = 'claude-haiku-4-5';
-    }
-
-    document.getElementById('default-model-row').classList.remove('hidden');
-    document.getElementById('done-panel').classList.remove('hidden');
-    document.getElementById('test-sub').textContent = 'Everything looks good. Pick your default model below.';
+  if(anyOk) {
+    buildModelChips();
+    document.getElementById('default-model-field').classList.remove('hidden');
+    document.getElementById('done-wrap').classList.remove('hidden');
+    document.getElementById('test-sub').textContent = 'Connections verified. Pick your default model below.';
     document.getElementById('btn-finish').disabled = false;
   } else {
-    const errs = results.map(r=>`${r.type}: ${r.error||'unreachable'}`).join('; ');
-    document.getElementById('test-status').className = 'test-status fail';
-    document.getElementById('test-status').textContent = '✗ Connection failed — ' + (errs || 'check your settings');
-    document.getElementById('test-sub').textContent = 'Check the details and go back to try again.';
+    document.getElementById('test-sub').textContent = 'No providers connected. Go back and check your keys.';
   }
 }
 
-async function testConn(type, key, url) {
+function makeTestRow(prov) {
+  const p = PROVIDERS[prov];
+  const el = document.createElement('div');
+  el.className = 'test-row';
+  el.innerHTML = `
+    <div class="test-icon"><span class="spinner"></span></div>
+    <div class="test-name">${p.icon} ${p.label}</div>
+    <div class="test-result wait">connecting…</div>`;
+  return {
+    el,
+    icon:   el.querySelector('.test-icon'),
+    result: el.querySelector('.test-result'),
+  };
+}
+
+function buildModelChips() {
+  const chips = document.getElementById('model-chips');
+  chips.innerHTML = '';
+  allModels.slice(0, 20).forEach(({ prov, model }) => {
+    const c = document.createElement('span');
+    c.className = 'model-chip';
+    c.textContent = model;
+    c.title = PROVIDERS[prov].label;
+    c.onclick = () => {
+      document.querySelectorAll('.model-chip').forEach(x => x.classList.remove('chosen'));
+      c.classList.add('chosen');
+      document.getElementById('in-default-model').value = model;
+    };
+    chips.appendChild(c);
+  });
+  if(allModels.length && !document.getElementById('in-default-model').value) {
+    document.getElementById('in-default-model').value = allModels[0].model;
+    chips.querySelector('.model-chip')?.classList.add('chosen');
+  }
+}
+
+async function testConn(prov, key) {
   try {
+    const body = { type: prov };
+    if(prov === 'ollama') body.url = key;
+    else                  body.key = key;
     const r = await fetch('/api/test-connection', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({type, key, url})
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
     return await r.json();
-  } catch(e) {
-    return {ok:false, error:String(e), models:[]};
-  }
+  } catch(e) { return {ok:false, error:String(e)}; }
 }
 
 async function finish() {
@@ -369,23 +479,24 @@ async function finish() {
   document.getElementById('btn-finish').innerHTML = '<span class="spinner"></span> Saving…';
 
   const body = {
-    backend,
-    anthropic_key: document.getElementById('in-apikey')?.value?.trim() || '',
-    ollama_url: document.getElementById('in-ollama')?.value?.trim() || 'http://localhost:11434',
+    providers: [...selected],
+    anthropic_key: document.getElementById('key-anthropic')?.value?.trim() || '',
+    openai_key:    document.getElementById('key-openai')?.value?.trim()    || '',
+    xai_key:       document.getElementById('key-xai')?.value?.trim()       || '',
+    gemini_key:    document.getElementById('key-gemini')?.value?.trim()    || '',
+    mistral_key:   document.getElementById('key-mistral')?.value?.trim()   || '',
+    ollama_url:    document.getElementById('key-ollama')?.value?.trim()    || '',
     default_model: document.getElementById('in-default-model')?.value?.trim() || '',
   };
 
   try {
     const r = await fetch('/api/setup', {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(body)
+      method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)
     });
     const d = await r.json();
-    if(d.ok) {
-      window.location.href = '/';
-    } else {
-      alert('Save failed: ' + (d.error||'unknown error'));
+    if(d.ok) { window.location.href = '/'; }
+    else {
+      alert('Save failed: ' + (d.error||'unknown'));
       document.getElementById('btn-finish').disabled = false;
       document.getElementById('btn-finish').textContent = 'Open Dashboard →';
     }
