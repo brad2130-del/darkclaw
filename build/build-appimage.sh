@@ -47,6 +47,28 @@ rsync -a --quiet \
     --exclude='darkclaw_project/' \
     "$ROOT/" "$APPDIR/"
 
+# ── Bundle Electron runtime ─────────────────────────────────────────────
+ELECTRON_VERSION="33.4.0"
+ELECTRON_CACHE="$SCRIPT_DIR/.cache"
+ELECTRON_ZIP="$ELECTRON_CACHE/electron-${ELECTRON_VERSION}.zip"
+ELECTRON_DIST="$APPDIR/electron"
+
+mkdir -p "$ELECTRON_CACHE"
+
+if [ ! -f "$ELECTRON_ZIP" ]; then
+    echo "→ Downloading Electron v${ELECTRON_VERSION} (~80MB, cached after first build)…"
+    wget -q --show-progress \
+        "https://github.com/electron/electron/releases/download/v${ELECTRON_VERSION}/electron-v${ELECTRON_VERSION}-linux-x64.zip" \
+        -O "$ELECTRON_ZIP"
+fi
+
+echo "→ Extracting Electron into AppDir…"
+# electron/ dir already has main.js + preload.js from the rsync above;
+# unzip adds the binary and supporting libs alongside them
+unzip -q -o "$ELECTRON_ZIP" -d "$ELECTRON_DIST"
+chmod +x "$ELECTRON_DIST/electron"
+echo "  Electron ready at $ELECTRON_DIST/electron"
+
 # ── App icon (SVG → PNG via rsvg-convert or Inkscape, fallback to placeholder) ──
 ICON_DST="$APPDIR/darkclaw.png"
 if [ ! -f "$ICON_DST" ]; then

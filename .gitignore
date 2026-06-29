@@ -47,3 +47,4 @@ build/darkclaw.AppDir/daydream/
 
 # Stale extracted copy — not source of truth
 darkclaw_project/
+build/.cache/

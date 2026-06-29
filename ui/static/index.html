@@ -9,31 +9,135 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════
-   TOKENS — Book Burrow Warm Walnut
+   TOKENS — Book Burrow Warm Walnut (contrast-lifted v2)
+   All muted/faint values pass WCAG AA (≥4.5:1) on panel bg
 ═══════════════════════════════════════════════════════════ */
 :root {
-  --bg:       #0e0c09;
-  --deep:     #17130e;
-  --panel:    #1f1a12;
-  --surface:  #272015;
-  --surface2: #312719;
-  --border:   #3b2e1f;
-  --bhi:      #5a4530;
-  --text:     #ede5ce;
-  --muted:    #998168;
-  --faint:    #4a3928;
-  --gold:     #c8900c;
-  --gold-hi:  #e6aa20;
-  --ember:    #c04a18;
-  --sage:     #4a8840;
-  --clay:     #a05030;
-  --sky:      #4478a0;
-  --parch:    #f4ead8;
+  --bg:       #141109;
+  --deep:     #1c170f;
+  --panel:    #251e14;
+  --surface:  #2d261a;
+  --surface2: #38301e;
+  --border:   #4a3828;
+  --bhi:      #6e5840;
+  --text:     #f2e8d4;
+  --muted:    #c09070;
+  --faint:    #7a6050;
+  --gold:     #d4980e;
+  --gold-hi:  #eab020;
+  --ember:    #d05020;
+  --sage:     #52984a;
+  --clay:     #a85838;
+  --sky:      #4a88b8;
+  --parch:    #f5edd8;
   --font: "Inter", system-ui, sans-serif;
   --mono: "JetBrains Mono", ui-monospace, monospace;
   --r:   6px;
   --r-lg:12px;
 }
+
+/* ── Midnight Ink — dark blue-slate ─────────────────────── */
+[data-theme="midnight-ink"] {
+  --bg:       #0d1117;
+  --deep:     #010409;
+  --panel:    #161b22;
+  --surface:  #1c2128;
+  --surface2: #22272e;
+  --border:   #30363d;
+  --bhi:      #484f58;
+  --text:     #e6edf3;
+  --muted:    #8b949e;
+  --faint:    #3d444d;
+  --gold:     #2f81f7;
+  --gold-hi:  #79c0ff;
+  --ember:    #f85149;
+  --sage:     #3fb950;
+  --clay:     #d29922;
+  --sky:      #58a6ff;
+  --parch:    #cdd9e5;
+  --font: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+[data-theme="midnight-ink"] .side-nav { background: #010409; }
+[data-theme="midnight-ink"] #topo-canvas { filter: hue-rotate(180deg) saturate(0.7); }
+
+/* ── Maple Creek Cozy — warm linen light theme ──────────── */
+[data-theme="maple-creek"] {
+  --bg:       #f5f0e8;
+  --deep:     #ede5d8;
+  --panel:    #e4dac8;
+  --surface:  #d8ccb8;
+  --surface2: #ccc0a8;
+  --border:   #b8a888;
+  --bhi:      #9a8868;
+  --text:     #2c1f0e;
+  --muted:    #6e5438;
+  --faint:    #a89070;
+  --gold:     #b85c28;
+  --gold-hi:  #d47030;
+  --ember:    #9c2018;
+  --sage:     #3a6e2c;
+  --clay:     #7a3818;
+  --sky:      #2858a0;
+  --parch:    #1a100a;
+  --font: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+[data-theme="maple-creek"] .side-nav  { background: #ddd0b8; }
+[data-theme="maple-creek"] .topo-wrap { background: #e8e0cc; }
+[data-theme="maple-creek"] .hdr {
+  background: linear-gradient(90deg, #ddd0b8 0%, #e4dac8 60%, #dad0b8 100%);
+}
+[data-theme="maple-creek"] .chat-send { color: #f5f0e8; }
+[data-theme="maple-creek"] body { color: #2c1f0e; }
+
+/* ── Neon Terminal — true black / lime green ────────────── */
+[data-theme="neon-terminal"] {
+  --bg:       #000000;
+  --deep:     #040404;
+  --panel:    #080808;
+  --surface:  #0c0c0c;
+  --surface2: #101010;
+  --border:   #0d2010;
+  --bhi:      #1a4020;
+  --text:     #00ff41;
+  --muted:    #00a028;
+  --faint:    #145018;
+  --gold:     #39ff14;
+  --gold-hi:  #80ff44;
+  --ember:    #ff003c;
+  --sage:     #00c853;
+  --clay:     #ff6600;
+  --sky:      #00e5ff;
+  --parch:    #ccffcc;
+  --font: "JetBrains Mono", ui-monospace, monospace;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+[data-theme="neon-terminal"] .side-nav { background: #040404; }
+
+/* ── Lavender Dusk — dark indigo / soft mauve ───────────── */
+[data-theme="lavender-dusk"] {
+  --bg:       #0e0c16;
+  --deep:     #110e1e;
+  --panel:    #18142a;
+  --surface:  #1e1934;
+  --surface2: #251f3e;
+  --border:   #342850;
+  --bhi:      #4e3d72;
+  --text:     #ebe4f8;
+  --muted:    #a090c8;
+  --faint:    #3d2f5c;
+  --gold:     #c084fc;
+  --gold-hi:  #e0aaff;
+  --ember:    #f472b6;
+  --sage:     #6ee7b7;
+  --clay:     #fb923c;
+  --sky:      #67e8f9;
+  --parch:    #f5f0ff;
+  --font: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+[data-theme="lavender-dusk"] .side-nav { background: #0a0812; }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
@@ -541,9 +645,40 @@ input[type=checkbox]:hover { border-color: var(--gold); }
 .whisper-card{background:var(--surface);border:2px dashed var(--bhi);border-radius:var(--r);padding:22px;text-align:center;color:var(--muted);}
 .whisper-icon{font-size:34px;margin-bottom:9px;}
 .hint{font-family:var(--mono);font-size:10.5px;color:var(--muted);text-align:center;padding:18px;line-height:1.7;}
+
+/* ── THEME SWITCHER ──────────────────────────────────────── */
+.theme-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.theme-card{background:var(--surface);border:2px solid var(--border);border-radius:var(--r);padding:11px 12px;cursor:pointer;transition:border-color 200ms ease;}
+.theme-card:hover{border-color:var(--bhi);}
+.theme-card.active{border-color:var(--gold);}
+.theme-preview{display:flex;gap:5px;margin-bottom:8px;align-items:center;}
+.tp-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0;}
+.theme-name{font-size:11px;font-weight:600;color:var(--text);}
+.theme-sub{font-family:var(--mono);font-size:8.5px;color:var(--muted);margin-top:2px;}
+
+/* ── ELECTRON TITLEBAR ───────────────────────────────────── */
+#electron-titlebar{height:32px;display:flex;align-items:center;background:#0a0807;border-bottom:1px solid var(--border);user-select:none;flex-shrink:0;position:relative;z-index:200;}
+#etb-drag{flex:1;height:100%;-webkit-app-region:drag;}
+#etb-title{position:absolute;left:50%;transform:translateX(-50%);font-family:var(--mono);font-size:10px;color:var(--muted);pointer-events:none;letter-spacing:.08em;}
+#etb-controls{display:flex;-webkit-app-region:no-drag;}
+#etb-controls button{width:46px;height:32px;background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;transition:background 150ms ease;}
+#etb-controls button:hover{background:var(--surface);color:var(--text);}
+#etb-close:hover{background:#c04a18 !important;color:#fff !important;}
 </style>
+<script>
+(function(){var t=localStorage.getItem('darkclaw-theme');if(t&&t!=='book-burrow')document.documentElement.setAttribute('data-theme',t);})();
+</script>
 </head>
 <body>
+<div id="electron-titlebar" style="display:none">
+  <div id="etb-drag"></div>
+  <span id="etb-title">DarkClaw</span>
+  <div id="etb-controls">
+    <button onclick="window.electronShell.minimize()" title="Minimize">─</button>
+    <button id="etb-max" onclick="window.electronShell.maximize()" title="Maximize">□</button>
+    <button id="etb-close" onclick="window.electronShell.close()" title="Close">✕</button>
+  </div>
+</div>
 <div class="app">
 
 <!-- ═══ ICON NAV STRIP ═══════════════════════════════════════ -->
@@ -877,9 +1012,10 @@ input[type=checkbox]:hover { border-color: var(--gold); }
       <button class="modal-close" onclick="closeSettings()">✕</button>
     </div>
     <div class="modal-tabs">
-      <div class="modal-tab on" data-mt="models"  onclick="settingsTab('models')">Models</div>
-      <div class="modal-tab"   data-mt="conns"   onclick="settingsTab('conns')">Connections</div>
-      <div class="modal-tab"   data-mt="whisper" onclick="settingsTab('whisper')">Whisper</div>
+      <div class="modal-tab on" data-mt="models"     onclick="settingsTab('models')">Models</div>
+      <div class="modal-tab"   data-mt="conns"      onclick="settingsTab('conns')">Connections</div>
+      <div class="modal-tab"   data-mt="whisper"    onclick="settingsTab('whisper')">Whisper</div>
+      <div class="modal-tab"   data-mt="appearance" onclick="settingsTab('appearance')">Appearance</div>
     </div>
     <div class="modal-body">
 
@@ -917,6 +1053,67 @@ input[type=checkbox]:hover { border-color: var(--gold); }
         <div style="margin-top:12px;font-family:var(--mono);font-size:9.5px;color:var(--muted);line-height:1.7">
           After a successful test, add values to <code>~/darkclaw/.env</code> and restart:<br>
           <code>systemctl --user restart darkclaw</code>
+        </div>
+      </div>
+
+      <div id="mt-appearance" style="display:none">
+        <p style="font-size:11.5px;color:var(--muted);margin-bottom:16px;line-height:1.6">Theme is saved locally and restored automatically on next launch.</p>
+        <div class="theme-grid" id="theme-grid">
+          <div class="theme-card active" data-theme="book-burrow" onclick="applyTheme('book-burrow')">
+            <div class="theme-preview">
+              <span class="tp-dot" style="background:#141109;border:1px solid #4a3828"></span>
+              <span class="tp-dot" style="background:#f2e8d4"></span>
+              <span class="tp-dot" style="background:#d4980e"></span>
+              <span class="tp-dot" style="background:#52984a"></span>
+              <span class="tp-dot" style="background:#d05020"></span>
+            </div>
+            <div class="theme-name">Book Burrow Warm Walnut</div>
+            <div class="theme-sub">Default · Dark walnut / amber</div>
+          </div>
+          <div class="theme-card" data-theme="midnight-ink" onclick="applyTheme('midnight-ink')">
+            <div class="theme-preview">
+              <span class="tp-dot" style="background:#0d1117;border:1px solid #30363d"></span>
+              <span class="tp-dot" style="background:#e6edf3"></span>
+              <span class="tp-dot" style="background:#2f81f7"></span>
+              <span class="tp-dot" style="background:#3fb950"></span>
+              <span class="tp-dot" style="background:#f85149"></span>
+            </div>
+            <div class="theme-name">Midnight Ink</div>
+            <div class="theme-sub">Dark · Blue-slate / electric blue</div>
+          </div>
+          <div class="theme-card" data-theme="maple-creek" onclick="applyTheme('maple-creek')">
+            <div class="theme-preview">
+              <span class="tp-dot" style="background:#f5f0e8;border:1px solid #b8a888"></span>
+              <span class="tp-dot" style="background:#2c1f0e"></span>
+              <span class="tp-dot" style="background:#b85c28"></span>
+              <span class="tp-dot" style="background:#3a6e2c"></span>
+              <span class="tp-dot" style="background:#9c2018"></span>
+            </div>
+            <div class="theme-name">Maple Creek Cozy</div>
+            <div class="theme-sub">Light · Warm linen / terracotta</div>
+          </div>
+          <div class="theme-card" data-theme="neon-terminal" onclick="applyTheme('neon-terminal')">
+            <div class="theme-preview">
+              <span class="tp-dot" style="background:#000;border:1px solid #1a4020"></span>
+              <span class="tp-dot" style="background:#00ff41"></span>
+              <span class="tp-dot" style="background:#39ff14"></span>
+              <span class="tp-dot" style="background:#00c853"></span>
+              <span class="tp-dot" style="background:#ff003c"></span>
+            </div>
+            <div class="theme-name">Neon Terminal</div>
+            <div class="theme-sub">Dark · True black / lime green</div>
+          </div>
+          <div class="theme-card" data-theme="lavender-dusk" onclick="applyTheme('lavender-dusk')">
+            <div class="theme-preview">
+              <span class="tp-dot" style="background:#0e0c16;border:1px solid #342850"></span>
+              <span class="tp-dot" style="background:#ebe4f8"></span>
+              <span class="tp-dot" style="background:#c084fc"></span>
+              <span class="tp-dot" style="background:#6ee7b7"></span>
+              <span class="tp-dot" style="background:#f472b6"></span>
+            </div>
+            <div class="theme-name">Lavender Dusk</div>
+            <div class="theme-sub">Dark · Indigo / soft mauve</div>
+          </div>
         </div>
       </div>
 
@@ -1303,9 +1500,22 @@ async function deleteDoc(id){if(!confirm("Remove this document from memory?"))re
 // ══════════════════════════════════════════════════════════════
 //  SETTINGS MODAL
 // ══════════════════════════════════════════════════════════════
-function openSettings(){document.getElementById("settings-modal").classList.remove("hide");loadModelSlots();}
+function openSettings(){
+  document.getElementById("settings-modal").classList.remove("hide");
+  loadModelSlots();
+  const t=localStorage.getItem('darkclaw-theme')||'book-burrow';
+  document.querySelectorAll('.theme-card').forEach(c=>c.classList.toggle('active',c.dataset.theme===t));
+}
 function closeSettings(){document.getElementById("settings-modal").classList.add("hide");}
-function settingsTab(tab){document.querySelectorAll(".modal-tab").forEach(t=>t.classList.toggle("on",t.dataset.mt===tab));["models","conns","whisper"].forEach(id=>{document.getElementById("mt-"+id).style.display=id===tab?"":"none";});}
+function settingsTab(tab){document.querySelectorAll(".modal-tab").forEach(t=>t.classList.toggle("on",t.dataset.mt===tab));["models","conns","whisper","appearance"].forEach(id=>{document.getElementById("mt-"+id).style.display=id===tab?"":"none";});}
+function applyTheme(name){
+  const html=document.documentElement;
+  if(name==='book-burrow')html.removeAttribute('data-theme');
+  else html.setAttribute('data-theme',name);
+  localStorage.setItem('darkclaw-theme',name);
+  document.querySelectorAll('.theme-card').forEach(c=>c.classList.toggle('active',c.dataset.theme===name));
+  localEmit('system.start','ui',{msg:`theme: ${name}`});
+}
 async function loadModelSlots(){const el=document.getElementById("model-slots");try{const r=await fetch('/health');const d=await r.json();const agents=Object.values(d.agents||{});if(!agents.length){el.innerHTML='<div class="hint">No agents found.</div>';return;}el.innerHTML=agents.map(a=>`<div class="model-card" id="mc-${a.agent_id}"><div class="model-card-hdr"><div><div class="model-card-name">${a.agent_id}</div><div class="model-card-role">${a.role}</div></div><span class="badge ${a.status==='idle'||a.status==='ok'?'badge-g':a.status==='error'?'badge-r':'badge-a'}">${a.status}</span></div><div class="field-lbl">Current Model</div><div class="model-row"><input class="inp" id="mo-${a.agent_id}" value="${a.model||''}" placeholder="e.g. ollama/llama3.2:latest"/><button class="btn primary" onclick="testModelSlot('${a.agent_id}')" style="flex-shrink:0">Test</button></div><div class="test-result" id="tr-${a.agent_id}"></div><div style="font-family:var(--mono);font-size:8.5px;color:var(--faint);margin-top:4px">To apply: edit .env and restart darkclaw service</div></div>`).join('');}catch(e){el.innerHTML=`<div class="hint">Could not load: ${e.message}</div>`;}}
 async function testModelSlot(agentId){const model=(document.getElementById("mo-"+agentId)||{}).value||'';const tr=document.getElementById("tr-"+agentId);if(!tr)return;tr.className="test-result testing";tr.textContent="Testing…";try{const isOllama=model.startsWith("ollama/"),isClaude=model.startsWith("claude-");const type=isOllama?"ollama":isClaude?"anthropic":"ollama";const modelName=model.replace("ollama/","");const ollamaUrl=(document.getElementById("conn-ollama-url")||{}).value||"";const body={type,url:isOllama?(ollamaUrl||""):""};if(isOllama)body.model=modelName;const r=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(d.ok){tr.className="test-result ok";tr.textContent=`✓ Connected — ${d.models?d.models.slice(0,3).join(', '):'ok'} (${d.latency_ms||'?'}ms)`;}else{tr.className="test-result fail";tr.textContent=`✗ ${d.error||'Connection failed'}`;}}catch(e){tr.className="test-result fail";tr.textContent=`✗ ${e.message}`;}}
 async function testConn(type){const urlEl=document.getElementById(`conn-${type==='pi5'?'pi5':type==='anthropic'?'claude':type}-${type==='anthropic'?'key':'url'}`);const trEl=document.getElementById(`tr-${type==='anthropic'?'claude':type}`);const statusEl=document.getElementById(`conn-status-${type==='anthropic'?'claude':type}`);if(!trEl)return;trEl.className="test-result testing";trEl.textContent="Testing…";statusEl.textContent="testing…";statusEl.style.color="var(--gold)";try{const body=type==='anthropic'?{type:"anthropic",key:(urlEl||{}).value||""}:{type:"ollama",url:(urlEl||{}).value||""};const r=await fetch('/api/test-connection',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const d=await r.json();if(d.ok){trEl.className="test-result ok";trEl.textContent=`✓ Connected${d.models?' — '+d.models.slice(0,3).join(', '):''}`;statusEl.textContent="✓ connected";statusEl.style.color="var(--sage)";}else{trEl.className="test-result fail";trEl.textContent=`✗ ${d.error||'Failed'}`;statusEl.textContent="✗ failed";statusEl.style.color="var(--ember)";}}catch(e){trEl.className="test-result fail";trEl.textContent=`✗ ${e.message}`;statusEl.textContent="✗ error";statusEl.style.color="var(--ember)";}}
@@ -1330,6 +1540,15 @@ setFilter("all");
 renderAll();
 requestAnimationFrame(mainLoop);
 connectWS();
+
+// Electron shell integration
+if(window.electronShell){
+  document.getElementById('electron-titlebar').style.display='flex';
+  document.querySelector('.app').style.height='calc(100vh - 32px)';
+  window.electronShell.onMaximized(v=>{
+    document.getElementById('etb-max').textContent=v?'❐':'□';
+  });
+}
 document.addEventListener("keydown",e=>{
   if(e.key==="Enter"&&document.activeElement.id==="mem-q")memQuery();
   if(e.key==="Enter"&&["t-s","t-p","t-o"].includes(document.activeElement.id))teachFact();

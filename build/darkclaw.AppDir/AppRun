@@ -45,14 +45,23 @@ for i in $(seq 1 30); do
     sleep 0.5
 done
 
-# ── Open browser ────────────────────────────────────────────────────────
-OPEN_URL="http://127.0.0.1:$PORT"
-xdg-open "$OPEN_URL" 2>/dev/null \
-  || sensible-browser "$OPEN_URL" 2>/dev/null \
-  || firefox "$OPEN_URL" 2>/dev/null \
-  || google-chrome "$OPEN_URL" 2>/dev/null \
-  || chromium-browser "$OPEN_URL" 2>/dev/null \
-  || echo "Open your browser at $OPEN_URL"
+# ── Launch Electron window (or fall back to browser) ────────────────────
+ELECTRON="$HERE/electron/electron"
+MAIN="$HERE/electron/main.js"
 
-# ── Stay alive until server exits ────────────────────────────────────────
-wait $SERVER_PID
+trap "kill $SERVER_PID 2>/dev/null; wait $SERVER_PID 2>/dev/null" EXIT INT TERM
+
+export DARKCLAW_PORT="$PORT"
+
+if [ -x "$ELECTRON" ] && [ -f "$MAIN" ]; then
+    "$ELECTRON" "$MAIN" \
+        --disable-gpu-sandbox \
+        2>>"$CONFIG_DIR/darkclaw.log"
+else
+    # Fallback: open in system browser if Electron not bundled
+    OPEN_URL="http://127.0.0.1:$PORT"
+    xdg-open "$OPEN_URL" 2>/dev/null \
+      || google-chrome "$OPEN_URL" 2>/dev/null \
+      || echo "Open your browser at $OPEN_URL"
+    wait $SERVER_PID
+fi
