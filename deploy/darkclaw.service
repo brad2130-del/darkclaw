@@ -1,0 +1,16 @@
+[Unit]
+Description=Darkclaw Multi-Agent Harness
+After=network.target ollama.service openclaw-memory.service
+Wants=ollama.service openclaw-memory.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/darkclaw
+EnvironmentFile=/opt/darkclaw/.env
+ExecStart=/opt/darkclaw/.venv/bin/uvicorn ui.server:app --host 0.0.0.0 --port 7430
+Restart=on-failure
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target
