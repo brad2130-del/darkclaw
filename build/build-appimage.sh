@@ -22,12 +22,14 @@ done
 
 # ── Set up Python env inside AppDir ────────────────────────────────────
 PY_PREFIX="$APPDIR/usr"
-mkdir -p "$PY_PREFIX/bin" "$PY_PREFIX/lib"
 
 echo "→ Installing dependencies into AppDir…"
+rm -rf "$APPDIR/.venv" "$APPDIR/usr"
+mkdir -p "$PY_PREFIX/bin" "$PY_PREFIX/lib" "$SCRIPT_DIR/.pip-tmp"
+export TMPDIR="$SCRIPT_DIR/.pip-tmp"
 python3 -m venv "$APPDIR/.venv" --copies
-"$APPDIR/.venv/bin/pip" install --quiet --upgrade pip
-"$APPDIR/.venv/bin/pip" install --quiet -r "$ROOT/requirements.txt" httpx
+"$APPDIR/.venv/bin/pip" install --quiet --no-cache-dir --upgrade pip
+"$APPDIR/.venv/bin/pip" install --quiet --no-cache-dir -r "$ROOT/requirements.txt" httpx
 
 # Wire the venv into usr/
 cp -f "$APPDIR/.venv/bin/python3" "$PY_PREFIX/bin/python3" 2>/dev/null || true
