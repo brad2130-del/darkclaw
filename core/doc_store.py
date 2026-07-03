@@ -63,6 +63,14 @@ def extract_text(filename: str, raw_bytes: bytes) -> str:
                 continue
         return raw_bytes.decode("utf-8", errors="replace")
 
+    from core.vision import IMAGE_EXTS, describe_image
+    if ext in IMAGE_EXTS:
+        try:
+            desc = describe_image(raw_bytes)
+            return f"Image file: {filename}\nDescription (moondream):\n{desc}"
+        except Exception as e:
+            return f"[Image description failed: {e.__class__.__name__} — is the memory node up?]"
+
     if ext == ".pdf":
         try:
             import pypdf

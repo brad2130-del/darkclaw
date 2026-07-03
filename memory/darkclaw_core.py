@@ -22,6 +22,7 @@ Three memory tiers (mirrors Darkclaw Green/Yellow/Red classifier):
 """
 
 import networkx as nx
+import os
 import sqlite3
 import json
 import time
@@ -429,18 +430,83 @@ class ContextGraph:
 #  VECTOR MEMORY
 # ─────────────────────────────────────────────
 
+_EMBED_URL   = os.environ.get("DARKCLAW_MEMORY_NODE_URL",
+                              "http://192.168.1.130:11434").rstrip("/")
+_EMBED_MODEL = os.environ.get("DARKCLAW_EMBED_MODEL", "nomic-embed-text:latest")
+
+
+def _embed_batch(texts: List[str], prefix: str) -> Optional[List[List[float]]]:
+    """Batch-embed via the memory node. Returns None on any failure."""
+    import urllib.request
+    try:
+        out: List[List[float]] = []
+        for i in range(0, len(texts), 64):
+            body = json.dumps({
+                "model": _EMBED_MODEL,
+                # nomic-embed is asymmetric: prefixes matter for quality
+                "input": [f"{prefix}: {t[:2000]}" for t in texts[i:i + 64]],
+            }).encode()
+            req = urllib.request.Request(
+                f"{_EMBED_URL}/api/embed", data=body,
+                headers={"Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=120) as r:
+                out.extend(json.loads(r.read().decode())["embeddings"])
+        return out if len(out) == len(texts) else None
+    except Exception:
+        return None
+
+
 class VectorMemory:
+    """
+    Semantic retrieval over ingested turns.
+
+    Primary path: real embeddings (nomic-embed-text on the memory node),
+    computed lazily in batch on first retrieve and cached — new chunks
+    embed incrementally. Fallback path: the original TF-IDF refit, used
+    whenever the memory node is unreachable so retrieval never breaks.
+    """
+
     def __init__(self):
         self._chunks: List[str] = []
         self._metadata: List[dict] = []
+        self._emb: List[List[float]] = []   # aligned with _chunks[:len(_emb)]
+        self._node_ok = True
 
     def ingest(self, text: str, metadata: dict = None):
         self._chunks.append(text)
         self._metadata.append(metadata or {})
 
+    def _ensure_embedded(self) -> bool:
+        """Embed any chunks past the cached prefix. True if cache is usable."""
+        if not self._node_ok:
+            return False
+        pending = self._chunks[len(self._emb):]
+        if pending:
+            got = _embed_batch(pending, "search_document")
+            if got is None:
+                self._node_ok = False   # degrade to TF-IDF this process
+                return False
+            self._emb.extend(got)
+        return bool(self._emb)
+
     def retrieve(self, query: str, top_k: int = 3) -> List[Tuple[str, float, dict]]:
         if not self._chunks:
             return []
+        if self._ensure_embedded():
+            got = _embed_batch([query], "search_query")
+            if got:
+                import numpy as np
+                q = np.asarray(got[0])
+                m = np.asarray(self._emb)
+                sims = (m @ q) / (
+                    (np.linalg.norm(m, axis=1) * np.linalg.norm(q)) + 1e-9)
+                idx = sims.argsort()[::-1][:top_k]
+                return [(self._chunks[i], float(sims[i]), self._metadata[i])
+                        for i in idx if sims[i] > 0]
+            self._node_ok = False
+        return self._retrieve_tfidf(query, top_k)
+
+    def _retrieve_tfidf(self, query: str, top_k: int) -> List[Tuple[str, float, dict]]:
         try:
             corpus = self._chunks + [query]
             vec = TfidfVectorizer(stop_words="english")

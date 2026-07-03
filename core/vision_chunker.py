@@ -74,6 +74,14 @@ def chunk_document(filename: str, raw_bytes: bytes) -> list[Chunk]:
     Returns a list of Chunk objects ready for memory ingestion.
     Falls back to word-count chunking on any error.
     """
+    from core.vision import IMAGE_EXTS
+    if Path(filename).suffix.lower() in IMAGE_EXTS:
+        # Images can't be partitioned — describe via moondream on the
+        # memory node, then chunk the description like any text doc.
+        from core.doc_store import extract_text
+        desc = extract_text(filename, raw_bytes)
+        return [Chunk(text=desc, type="Image", section=filename)]
+
     try:
         return _unstructured_chunk(filename, raw_bytes)
     except Exception:

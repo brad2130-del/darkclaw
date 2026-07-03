@@ -108,6 +108,18 @@ class Orchestrator:
                 emit(EventType.MEMORY_HIT, "docs",
                      query=task[:80], tier=doc_qr._classify_tier(), method=doc_qr.method)
 
+        # ── live telemetry for health questions (never let a model
+        #    invent GPU/RAM numbers — measure and inject instead) ────────
+        _HEALTH_WORDS = {"health", "status", "vram", "gpu", "temperature",
+                         "uptime", "load", "ram", "disk", "memory", "usage"}
+        import re as _re
+        if _HEALTH_WORDS & set(_re.findall(r"[a-z0-9]+", task.lower())):
+            try:
+                from core.telemetry import gather_health
+                context["live_telemetry"] = await asyncio.to_thread(gather_health)
+            except Exception:
+                pass  # telemetry is best-effort; the task must still run
+
         # ── dynamic model selection via ModelRouter ─────────────────────
         from core.model_router import router, score_complexity
         complexity = score_complexity(task)
@@ -265,19 +277,21 @@ class Orchestrator:
                             model=f"{ollama}llama3.2:latest"), memory=memory))
 
             # Sage — system/homelab queries; uses trained weights
+            from core.model_router import SYSTEM_MODEL
             orc.register_agent(WorkerAgent(
                 AgentConfig(agent_id="sage", role="memory",
-                            model=f"{ollama}openclaw-brain-v2:latest"), memory=memory))
+                            model=SYSTEM_MODEL), memory=memory))
 
             # Bea — general worker
             orc.register_agent(WorkerAgent(
                 AgentConfig(agent_id="bea", role="worker",
                             model=f"{ollama}llama3.1:latest"), memory=memory))
 
-            # Coder — local deepseek + Claude teacher until graduation
+            # Coder — local qwen (GPU-resident next to sage) + Claude teacher
+            from core.model_router import CODER_MODEL
             orc.register_agent(CoderAgent(
                 AgentConfig(agent_id="coder", role="coder",
-                            model=f"{ollama}deepseek-coder-v2:16b-lite-instruct-q4_K_M",
+                            model=CODER_MODEL,
                             teacher_model=claude_coder), memory=memory))
 
             # Fallback — always Claude Haiku; promoted when chain degrades
@@ -294,7 +308,11 @@ class Orchestrator:
         if not self.agents:
             return None
 
-        words = set(task.lower().split())
+        # Regex tokenize — bare split() left punctuation attached
+        # ("updated." never matched "updated"), which silently defaulted
+        # system-health queries to Rosie.
+        import re
+        words = set(re.findall(r"[a-z0-9]+", task.lower()))
 
         _CODING = {"code", "function", "bug", "script", "python", "javascript",
                    "error", "fix", "implement", "debug", "refactor", "class",
@@ -302,14 +320,23 @@ class Orchestrator:
         _SYSTEM = {"server", "docker", "proxmox", "gpu", "nvidia", "homelab",
                    "linux", "disk", "cpu", "ram", "memory", "ollama", "container",
                    "systemd", "service", "log", "process", "network", "tailscale",
-                   "vm", "lxc", "bios", "kernel", "driver", "nvme", "pcie"}
+                   "vm", "lxc", "bios", "kernel", "driver", "nvme", "pcie",
+                   "system", "health", "status", "model", "models", "openclaw",
+                   "uptime", "temperature", "vram", "darkclaw"}
         _SHOP   = {"book", "shop", "customer", "inventory", "order", "isbn",
                    "price", "supplier", "burrow", "sale", "invoice", "stock",
                    "vendor", "receipt", "return", "shelf", "catalog"}
 
         def _ok(aid):
+            # An errored agent rejoins routing after a cooldown; otherwise a
+            # single Ollama hiccup permanently fails traffic over to the
+            # default/fallback (cloud API) until the next process restart.
             a = self.agents.get(aid)
-            return a and a.status != "error"
+            if not a:
+                return False
+            if a.status != "error":
+                return True
+            return time.time() - getattr(a, "_error_ts", 0) > 120
 
         if words & _CODING:
             if _ok("coder"): return "coder"

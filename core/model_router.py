@@ -7,7 +7,7 @@ OpenClaw Pi5 offload, and Claude cloud models.
 Routing tiers:
   /fast mode  → Claude Haiku (simple) or Sonnet (complex) — session override
   Pi5 offload → daddypi OpenClaw (100.77.235.30) for lightweight queries
-  Local GPU   → deepseek-coder (9.5GB) + openclaw-brain-v2 (5GB) on P100
+  Local GPU   → deepseek-coder (9.5GB) + openclaw-brain-v3 (5GB) on P100
   Local CPU   → llama3.2, phi3.5, llama3.1 — free VRAM for GPU models
 """
 import os
@@ -45,11 +45,23 @@ KEEP_ALIVE_SEC = 300
 OPENCLAW_PI5_URL   = os.environ.get("OPENCLAW_PI5_URL",   "http://100.77.235.30:11434")
 OPENCLAW_PI5_MODEL = os.environ.get("OPENCLAW_PI5_MODEL", "openclaw-brain")
 
+# Memory node — Lenovo M910 CT 130 (openclaw-memory). Hosts the CPU SLMs
+# (phi3.5, llama3.2), nomic-embed-text embeddings, and moondream vision so
+# the P100 serves only the two big models. Empty string disables the split.
+MEMORY_NODE_URL = os.environ.get("DARKCLAW_MEMORY_NODE_URL", "http://192.168.1.130:11434")
+
 # Named model constants
+# SYSTEM_MODEL is env-overridable so the next brain upgrade is a config
+# change, not a code hunt (v2→v3 required edits in three files).
 FAST_MODEL      = "ollama/llama3.2:latest"
-SYSTEM_MODEL    = "ollama/openclaw-brain-v2:latest"
+SYSTEM_MODEL    = "ollama/" + os.environ.get(
+    "DARKCLAW_SYSTEM_MODEL", "openclaw-brain-v3:latest")
 SYSTEM_FALLBACK = "ollama/llama3.1:latest"
-CODER_MODEL     = "ollama/deepseek-coder-v2:16b-lite-instruct-q4_K_M"
+# qwen2.5-coder:7b fits the P100 alongside v3 (both permanently hot, no
+# evictions). deepseek-v2:16b stays installed as a CPU model (MoE, 2.4B
+# active params) for heavy jobs — it must never claim VRAM.
+CODER_MODEL     = "ollama/qwen2.5-coder:7b"
+CODER_HEAVY     = "ollama/deepseek-coder-v2:16b-lite-instruct-q4_K_M"
 PI5_MODEL       = f"ollama/{OPENCLAW_PI5_MODEL}"
 CLAUDE_FAST     = "claude-haiku-4-5-20251001"    # fastest Claude, ~50ms
 CLAUDE_SMART    = "claude-sonnet-4-6"             # complex reasoning + repair plans
@@ -63,19 +75,23 @@ CLAUDE_SMART    = "claude-sonnet-4-6"             # complex reasoning + repair p
 
 MODEL_PROFILES: dict[str, dict] = {
     "ollama/phi3.5:latest": {
-        "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048,
+        "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048, "_memory_node": True,
     },
     "ollama/llama3.2:latest": {
-        "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048,
+        "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048, "_memory_node": True,
     },
     "ollama/llama3.1:latest": {
         "vram_gb": 0, "num_gpu": 0, "num_ctx": 2048,
     },
-    "ollama/openclaw-brain-v2:latest": {
+    SYSTEM_MODEL: {
         "vram_gb": 5.0, "num_gpu": 99, "num_ctx": 4096,
     },
-    "ollama/deepseek-coder-v2:16b-lite-instruct-q4_K_M": {
-        "vram_gb": 9.5, "num_gpu": 99, "num_ctx": 4096,
+    CODER_MODEL: {
+        "vram_gb": 5.5, "num_gpu": 99, "num_ctx": 4096,
+    },
+    # CPU-pinned: keeps the GPU budget for v3 + qwen. MoE keeps this usable.
+    CODER_HEAVY: {
+        "vram_gb": 0, "num_gpu": 0, "num_ctx": 4096,
     },
     # Pi5 — routed to daddypi Ollama; no P100 VRAM cost
     PI5_MODEL: {
@@ -193,7 +209,10 @@ class ModelRouter:
             self._gpu_hot[model] = time.time()
         if model.startswith("claude-"):
             return model, {}
-        return model, self.ollama_options(model)
+        opts = self.ollama_options(model)
+        if prof.get("_memory_node") and MEMORY_NODE_URL:
+            opts["_api_base"] = MEMORY_NODE_URL
+        return model, opts
 
     def _use_pi5(self) -> tuple[str, dict]:
         """Route to daddypi's OpenClaw — inject _api_base so caller overrides endpoint."""

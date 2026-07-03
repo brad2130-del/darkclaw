@@ -65,6 +65,7 @@ class WorkerAgent(BaseAgent):
         except Exception as e:
             self._error_count += 1
             self.status = "error"
+            self._error_ts = time.time()   # lets _route retry after cooldown
             emit(EventType.SYSTEM_ERROR, self.agent_id, msg=str(e)[:160])
             return TaskResult(
                 success=False, output=None, agent_id=self.agent_id,
@@ -111,6 +112,12 @@ class WorkerAgent(BaseAgent):
             doc_ans = doc.get("answer", "")
             if doc_ans and doc_ans != "No memory found.":
                 sys_parts.append(f"[Uploaded Document Context]\n{doc_ans}")
+
+        tel = context.get("live_telemetry")
+        if tel:
+            sys_parts.append(
+                "[Live System Telemetry — measured seconds ago; report ONLY "
+                f"these numbers, do not invent metrics]\n{tel}")
 
         if correction:
             sys_parts.append(correction)

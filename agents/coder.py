@@ -95,6 +95,7 @@ class CoderAgent(BaseAgent):
         except Exception as e:
             self._error_count += 1
             self.status = "error"
+            self._error_ts = time.time()   # lets _route retry after cooldown
             emit(EventType.SYSTEM_ERROR, self.agent_id, msg=str(e)[:200])
             return TaskResult(
                 success=False, output=None, agent_id=self.agent_id,

@@ -73,6 +73,7 @@ class FallbackAgent(BaseAgent):
         except Exception as e:
             self._error_count += 1
             self.status = "error"
+            self._error_ts = time.time()   # lets _route retry after cooldown
             emit(EventType.SYSTEM_ERROR, self.agent_id, msg=str(e)[:160])
             return TaskResult(False, None, self.agent_id,
                               (time.perf_counter() - t0) * 1000, error=str(e))

@@ -114,6 +114,9 @@ async def _startup():
         emit(EventType.AGENT_STARTED, aid,
              role=agent.config.role, model=agent.config.model)
     asyncio.create_task(_heartbeat_loop())
+    if orc.memory:
+        from core.curator import curator_loop
+        asyncio.create_task(curator_loop(orc.memory))
 
 
 async def _heartbeat_loop():
@@ -240,7 +243,7 @@ async def _run_command(cmd: str) -> str:
             "🌿 LOCAL MODE RESTORED\n\n"
             "Routing returned to Ollama / P100:\n"
             "  Rosie, Kit, Bea  → llama3.2 (CPU)\n"
-            "  Sage             → openclaw-brain-v2 (GPU)\n"
+            "  Sage             → openclaw-brain-v3 (GPU)\n"
             "  Coder            → deepseek-coder 16B (GPU)" + pi5_note + "\n\n"
             "Claude remains available as Coder's teacher and via /fast."
         )
@@ -308,7 +311,7 @@ async def _generate_plan() -> str:
         "action plan — each step must say WHAT to fix, WHY it's broken, and HOW to fix it "
         "(name the file, method, or config key). Be concise and direct. No preamble.\n\n"
         "Agent roster: Rosie (helper/phi3.5), Kit (shopkeeper/llama3.2), "
-        "Sage (memory/openclaw-brain-v2 GPU), Bea (worker/llama3.1), "
+        "Sage (memory/openclaw-brain-v3 GPU), Bea (worker/llama3.1), "
         "Coder (deepseek-coder 16B GPU + Claude teacher), Pip (guardian/watchdog), "
         "Fallback (claude-haiku-4-5, always-on cloud safety net).\n"
         "Stack: FastAPI + asyncio, Ollama P100 16GB, SQLite memory, litellm routing."
@@ -457,6 +460,16 @@ async def demo():
     return JSONResponse({"ok": True, "msg": "demo scenario started"})
 
 
+@app.post("/curate")
+async def curate():
+    """Run one curation cycle on demand (the loop also runs it periodically)."""
+    from core.curator import Curator
+    if not orc or not orc.memory:
+        return {"error": "memory engine not ready"}
+    report = await asyncio.to_thread(Curator(orc.memory).run_cycle)
+    return {"success": True, **report}
+
+
 @app.get("/health")
 async def health():
     return orc.health()
@@ -469,7 +482,9 @@ async def upload_doc(file: UploadFile = File(...)):
     raw = await file.read()
     if len(raw) > 20 * 1024 * 1024:
         return JSONResponse({"ok": False, "error": "File too large (20 MB max)"}, status_code=413)
-    record = ingest_document(file.filename, raw, orc.memory)
+    # Off the event loop: image files block on a CPU moondream call that
+    # can take minutes; inline it would freeze every websocket and query.
+    record = await asyncio.to_thread(ingest_document, file.filename, raw, orc.memory)
     emit(EventType.MEMORY_INGEST, "docs",
          subject=f"doc:{record['doc_id']}",
          predicate="IS_DOCUMENT",
