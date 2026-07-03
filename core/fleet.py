@@ -27,11 +27,16 @@ def _norm(url: str) -> str:
 
 
 def _nodes_from_env() -> dict[str, str]:
-    """name → url for every configured Ollama node; empty env vars drop out."""
+    """
+    name → url for every configured Ollama node; empty env vars drop out.
+    Defaults must match core/model_router.py exactly — CT 130's fleet map
+    once omitted pi5 while the drift check included it, which reads as a
+    contradiction on the dashboard.
+    """
     nodes = {}
     p100 = _norm(os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", ""))
     mem  = _norm(os.environ.get("DARKCLAW_MEMORY_NODE_URL", "http://192.168.1.130:11434"))
-    pi5  = _norm(os.environ.get("OPENCLAW_PI5_URL", ""))
+    pi5  = _norm(os.environ.get("OPENCLAW_PI5_URL", "http://100.77.235.30:11434"))
     if p100:
         nodes["p100"] = p100
     if mem:
