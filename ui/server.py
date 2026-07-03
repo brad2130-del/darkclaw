@@ -168,6 +168,46 @@ async def api_fleet():
     return {"nodes": snap, "drift": drift}
 
 
+class SentinelIn(BaseModel):
+    source: str
+    signature: str
+    count: int
+    window_s: int = 900
+    sample: str = ""
+
+
+@app.post("/api/sentinel/report")
+async def sentinel_report(body: SentinelIn):
+    """
+    Receiving end of the sentinel daemon: a recurring error signature
+    crossed its threshold somewhere in the fleet. Escalate it for human
+    review and (optionally) fire an async LLM analysis on the fleet —
+    the sentinel itself never spends model time.
+    """
+    msg = (f"[{body.source}] '{body.signature}' seen {body.count}x "
+           f"in {body.window_s // 60} min")
+    emit(EventType.HEALTH_WARN, "sentinel",
+         issue=msg, sample=body.sample[:200])
+    if orc and orc.healer:
+        orc.healer.escalate_external(
+            "sentinel", msg,
+            context={"signature": body.signature, "sample": body.sample},
+        )
+    analyzed = False
+    if orc and os.environ.get("DARKCLAW_SENTINEL_ANALYZE", "1") == "1":
+        task = (
+            f"The fleet sentinel flagged a recurring issue on {body.source}: "
+            f"the error signature below occurred {body.count} times in "
+            f"{body.window_s // 60} minutes.\n\nSignature: {body.signature}\n"
+            f"Sample line: {body.sample[:300]}\n\n"
+            "Diagnose the likely root cause and recommend one concrete "
+            "repair step. Be brief and specific."
+        )
+        asyncio.create_task(orc.submit(task, agent_id="sage"))
+        analyzed = True
+    return {"ok": True, "escalated": True, "analysis_started": analyzed}
+
+
 @app.get("/api/hardening")
 async def api_hardening():
     """

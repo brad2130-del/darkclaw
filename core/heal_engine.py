@@ -398,6 +398,26 @@ class HealEngine:
             return await result
         return result
 
+    def escalate_external(self, source: str, error_msg: str,
+                          context: dict = None) -> Failure:
+        """
+        File an escalation reported from outside the agent loop (the
+        sentinel daemon, future watchers). Lands in the same human review
+        queue and Escalate tab as agent-loop failures.
+        """
+        failure = Failure(
+            agent_id=source,
+            failure_type=FailureType.UNKNOWN,
+            error_msg=error_msg,
+            context=context or {},
+        )
+        self._history.append(failure)
+        self._escalation_queue.append(failure)
+        emit(EventType.HEAL_FAILED, source,
+             failure_type=FailureType.UNKNOWN, external=True,
+             queued_for_review=True, error=error_msg[:200])
+        return failure
+
     def escalation_queue(self) -> List[Failure]:
         return list(self._escalation_queue)
 

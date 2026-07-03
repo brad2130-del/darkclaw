@@ -45,14 +45,17 @@ class WorkerAgent(BaseAgent):
         emit(EventType.AGENT_TASK_START, self.agent_id,
              task=task[:80], role=self.config.role)
         try:
+            import asyncio
             injected = context.get("injected_memory")
             if injected is None and self.memory:
-                qr = self.memory.query(task, self.agent_id)
+                qr = await asyncio.to_thread(self.memory.query, task, self.agent_id)
                 injected = qr.to_tool_result()
                 emit(EventType.MEMORY_QUERY, self.agent_id,
                      query=task[:80], tier=injected["memory_tier"], method=injected["method"])
 
-            output = self._respond(task, context, injected)
+            # _respond blocks on the LLM — run it in a thread so one agent's
+            # generation can't freeze the event loop for the whole server
+            output = await asyncio.to_thread(self._respond, task, context, injected)
 
             self._task_count += 1
             self.status = "idle"

@@ -1,0 +1,15 @@
+[Unit]
+Description=DarkClaw Sentinel — fleet log/probe watchdog
+After=network-online.target darkclaw.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/darkclaw
+EnvironmentFile=-/opt/darkclaw/.env
+ExecStart=/opt/darkclaw/.venv/bin/python -m sentinel.sentinel
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -94,15 +94,17 @@ class Orchestrator:
         context.setdefault("fallback_model", agent.config.fallback_model)
 
         # ── inject Darkclaw memory (s05) ────────────────────────────────
+        # In threads: memory.query embeds via the memory node and can take
+        # minutes on a cold cache — on the event loop it froze the server.
         if self.memory and "injected_memory" not in context:
-            qr = self.memory.query(task, target_id)
+            qr = await asyncio.to_thread(self.memory.query, task, target_id)
             context["injected_memory"] = qr.to_tool_result()
             emit(EventType.MEMORY_QUERY, target_id,
                  query=task[:80], tier=qr._classify_tier(), method=qr.method)
 
             # Cross-query the shared doc namespace so uploaded documents
             # are visible to every agent regardless of who ingested them.
-            doc_qr = self.memory.query(task, "docs")
+            doc_qr = await asyncio.to_thread(self.memory.query, task, "docs")
             if doc_qr.confidence > 0.1 and doc_qr.answer != "No memory found.":
                 context["doc_memory"] = doc_qr.to_tool_result()
                 emit(EventType.MEMORY_HIT, "docs",
