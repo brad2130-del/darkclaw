@@ -57,6 +57,17 @@ class ToolRegistry:
         """Call a tool and return its string result."""
         if tool_name not in self._tools:
             return f"Error: unknown tool '{tool_name}'"
+
+        # Dangerous-command gate: no tool may run interpreter/shell-escape
+        # inputs without human approval, including tools added later.
+        from core.guardrails import guard_tool_input
+        refusal = guard_tool_input(tool_name, tool_input)
+        if refusal:
+            emit(EventType.HEALTH_WARN, agent_id,
+                 issue="dangerous tool input blocked",
+                 tool=tool_name, input_preview=str(tool_input)[:80])
+            return refusal
+
         emit(EventType.AGENT_TOOL_CALL, agent_id,
              tool=tool_name, input_preview=str(tool_input)[:80])
         try:

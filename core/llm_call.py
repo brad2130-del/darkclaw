@@ -54,6 +54,7 @@ def resilient_completion(
     stream: bool = False,
     completion_fn=None,      # injectable for tests
     registry=None,           # injectable for tests
+    breaker=None,            # injectable for tests
     **kw,
 ):
     """
@@ -91,10 +92,25 @@ def resilient_completion(
     if not model.startswith("ollama/"):
         return _attempt(model, None), _info(model, None, False)
 
+    if breaker is None:
+        from core.guardrails import breaker as _default_breaker
+        breaker = _default_breaker
+
     primary = (api_base or os.environ.get("OLLAMA_API_BASE")
                or os.environ.get("OLLAMA_BASE_URL", "")).rstrip("/") or None
 
     tried = []
+    breaker_sig = f"llm:{model}"
+    first_err = None
+
+    # Circuit breaker: this model recently failed on every node — don't
+    # replay the whole ladder per request, go straight to fallbacks.
+    if not breaker.allows(breaker_sig):
+        emit(EventType.HEAL_TRIGGERED, agent_id,
+             failure_type="LLM_CALL", model=model,
+             breaker_open=True, error="circuit open — skipping to fallbacks")
+        first_err = RuntimeError(
+            f"circuit open for {model} (recent failures on all nodes)")
 
     def _note(m, url, e):
         tried.append({"model": m,
@@ -103,31 +119,38 @@ def resilient_completion(
         if url and _is_conn_error(e):
             reg.mark_bad(url)
 
-    # ── rung 1: primary node ────────────────────────────────────────────
-    try:
-        return _attempt(model, primary), _info(model, primary, False)
-    except Exception as e:
-        first_err = e
-        _note(model, primary, e)
-
-    emit(EventType.HEAL_TRIGGERED, agent_id,
-         failure_type="LLM_CALL", model=model,
-         node=reg.name_of(primary) if primary else "default",
-         error=str(first_err)[:200])
-
-    # ── rung 2: same model, different node (fresh probe → sees drift) ───
-    for url in reg.locate(model, fresh=True):
-        if url == primary:
-            continue
-        emit(EventType.HEAL_ATTEMPT, agent_id,
-             strategy="REROUTE_NODE", model=model, node=reg.name_of(url))
+    if first_err is None:
+        # ── rung 1: primary node ────────────────────────────────────────
         try:
-            resp = _attempt(model, url)
-            emit(EventType.HEAL_SUCCESS, agent_id,
-                 strategy="REROUTE_NODE", model=model, node=reg.name_of(url))
-            return resp, _info(model, url, True)
+            resp = _attempt(model, primary)
+            breaker.record_success(breaker_sig)
+            return resp, _info(model, primary, False)
         except Exception as e:
-            _note(model, url, e)
+            first_err = e
+            _note(model, primary, e)
+
+        emit(EventType.HEAL_TRIGGERED, agent_id,
+             failure_type="LLM_CALL", model=model,
+             node=reg.name_of(primary) if primary else "default",
+             error=str(first_err)[:200])
+
+        # ── rung 2: same model, different node (fresh probe → sees drift)
+        for url in reg.locate(model, fresh=True):
+            if url == primary:
+                continue
+            emit(EventType.HEAL_ATTEMPT, agent_id,
+                 strategy="REROUTE_NODE", model=model, node=reg.name_of(url))
+            try:
+                resp = _attempt(model, url)
+                breaker.record_success(breaker_sig)
+                emit(EventType.HEAL_SUCCESS, agent_id,
+                     strategy="REROUTE_NODE", model=model, node=reg.name_of(url))
+                return resp, _info(model, url, True)
+            except Exception as e:
+                _note(model, url, e)
+
+        # the model failed on every node that claims to serve it
+        breaker.record_failure(breaker_sig)
 
     # ── rung 3: fallback models ─────────────────────────────────────────
     for fb in _fallback_chain(model):

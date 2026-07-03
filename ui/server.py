@@ -168,6 +168,24 @@ async def api_fleet():
     return {"nodes": snap, "drift": drift}
 
 
+@app.get("/api/hardening")
+async def api_hardening():
+    """
+    One surface for the whole hardening stack: circuit breakers, context
+    budget trims, per-agent query guards, and heal-engine stats — so 'is
+    the self-healing actually earning its keep' is one curl away.
+    """
+    from core.guardrails import breaker
+    from core.context_budget import stats as budget_stats
+    from core.query_guard import guards
+    return {
+        "circuit_breakers": breaker.snapshot(),
+        "context_budget":   dict(budget_stats),
+        "query_guards":     guards.snapshot(),
+        "heal_engine":      orc.healer.stats() if orc and orc.healer else {},
+    }
+
+
 # ── pages ─────────────────────────────────────────────────────────────────
 
 @app.get("/")
@@ -399,73 +417,91 @@ async def stream_submit(body: SubmitIn):
             target_id = body.agent_id or orc._route(body.task)
             agent     = orc.agents.get(target_id) or next(iter(orc.agents.values()))
 
-            from core.model_router import router, score_complexity
-            complexity    = score_complexity(body.task)
-            model, opts   = router.pick(agent.config.role, body.task, complexity)
-
-            # Build context with memory + docs
-            context = {}
-            if orc.memory:
-                qr = orc.memory.query(body.task, target_id)
-                context["injected_memory"] = qr.to_tool_result()
-                doc_qr = orc.memory.query(body.task, "docs")
-                if doc_qr.confidence > 0.1 and doc_qr.answer != "No memory found.":
-                    context["doc_memory"] = doc_qr.to_tool_result()
-
-            # Build messages
-            sys_parts = []
-            mem_ans = (context.get("injected_memory") or {}).get("answer", "")
-            if mem_ans and mem_ans != "No memory found.":
-                sys_parts.append(f"[Darkclaw Memory]\n{mem_ans}")
-            doc_ans = (context.get("doc_memory") or {}).get("answer", "")
-            if doc_ans and doc_ans != "No memory found.":
-                sys_parts.append(f"[Document Context]\n{doc_ans}")
-
-            messages = []
-            if sys_parts:
-                messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
-            messages.append({"role": "user", "content": body.task})
-
-            # Ollama routing — router opts carry _api_base (memory node / Pi5)
-            opts = dict(opts)
-            api_base = opts.pop("_api_base", None)
-
-            # Announce agent + model
-            yield f"data: {_json.dumps({'type':'meta','agent_id':target_id,'model':model})}\n\n"
-
-            # Stream tokens through the resilient fleet layer (node/model
-            # failover + HEAL events). Always close the response to release
-            # the Ollama socket, even if the SSE client disconnects or an
-            # exception is thrown mid-stream.
-            full_text = ""
-            from core.llm_call import resilient_completion
-            response, serve_info = resilient_completion(
-                model=model, messages=messages, agent_id=target_id,
-                api_base=api_base, options=opts or None, stream=True,
-            )
+            # Re-entrancy guard: one in-flight query per agent. A second
+            # submit while the agent is busy gets a polite error instead of
+            # racing the first on status and RAG attribution.
+            from core.query_guard import guards
+            guard = guards.get(target_id)
+            gen_token = guard.try_start()
+            if gen_token is None:
+                yield f"data: {_json.dumps({'type':'error','error':f'{target_id} is still working on the previous message — give it a moment'})}\n\n"
+                return
             try:
-                for chunk in response:
-                    delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
-                    if delta:
-                        full_text += delta
-                        yield f"data: {_json.dumps({'type':'token','text':delta})}\n\n"
-            finally:
+                from core.model_router import router, score_complexity
+                complexity    = score_complexity(body.task)
+                model, opts   = router.pick(agent.config.role, body.task, complexity)
+
+                # Build context with memory + docs — in a thread: these are
+                # blocking calls, and blocking the event loop here freezes
+                # every other request (including the guard's busy replies)
+                context = {}
+                if orc.memory:
+                    qr = await asyncio.to_thread(orc.memory.query, body.task, target_id)
+                    context["injected_memory"] = qr.to_tool_result()
+                    doc_qr = await asyncio.to_thread(orc.memory.query, body.task, "docs")
+                    if doc_qr.confidence > 0.1 and doc_qr.answer != "No memory found.":
+                        context["doc_memory"] = doc_qr.to_tool_result()
+
+                # System prompt via the shared budget-enforced builder —
+                # same code path as the worker, can't overflow num_ctx.
+                from core.context_budget import build_system_prompt
+                sys_prompt = build_system_prompt(context, body.task, model,
+                                                 agent_id=target_id)
+                messages = []
+                if sys_prompt:
+                    messages.append({"role": "system", "content": sys_prompt})
+                messages.append({"role": "user", "content": body.task})
+
+                # Ollama routing — router opts carry _api_base (memory node / Pi5)
+                opts = dict(opts)
+                api_base = opts.pop("_api_base", None)
+
+                # Announce agent + model
+                yield f"data: {_json.dumps({'type':'meta','agent_id':target_id,'model':model})}\n\n"
+
+                # Stream tokens through the resilient fleet layer (node/model
+                # failover + HEAL events). Always close the response to release
+                # the Ollama socket, even if the SSE client disconnects or an
+                # exception is thrown mid-stream.
+                full_text = ""
+                from core.llm_call import resilient_completion
+                response, serve_info = await asyncio.to_thread(
+                    lambda: resilient_completion(
+                        model=model, messages=messages, agent_id=target_id,
+                        api_base=api_base, options=opts or None, stream=True,
+                    ))
                 try:
-                    response.close()
-                except Exception:
-                    pass
+                    # litellm's stream iterator blocks per chunk — pull each
+                    # chunk in a thread so the loop stays responsive
+                    _END = object()
+                    _it = iter(response)
+                    while True:
+                        chunk = await asyncio.to_thread(next, _it, _END)
+                        if chunk is _END:
+                            break
+                        delta = (chunk.choices[0].delta.content or "") if chunk.choices else ""
+                        if delta:
+                            full_text += delta
+                            yield f"data: {_json.dumps({'type':'token','text':delta})}\n\n"
+                finally:
+                    try:
+                        response.close()
+                    except Exception:
+                        pass
 
-            # done carries the serve trace: which model/node really answered
-            # (may differ from meta if the fleet layer healed a reroute)
-            yield f"data: {_json.dumps({'type':'done','agent_id':target_id, **serve_info})}\n\n"
+                # done carries the serve trace: which model/node really answered
+                # (may differ from meta if the fleet layer healed a reroute)
+                yield f"data: {_json.dumps({'type':'done','agent_id':target_id, **serve_info})}\n\n"
 
-            # Fire RAG + update router heat
-            if full_text and orc.memory:
-                router.record_use(serve_info["model"])
-                from core.rag_extractor import schedule_rag
-                schedule_rag(body.task, full_text, target_id, orc.memory)
-                emit(EventType.AGENT_TASK_DONE, target_id,
-                     task=body.task[:40], **serve_info)
+                # Fire RAG + update router heat
+                if full_text and orc.memory:
+                    router.record_use(serve_info["model"])
+                    from core.rag_extractor import schedule_rag
+                    schedule_rag(body.task, full_text, target_id, orc.memory)
+                    emit(EventType.AGENT_TASK_DONE, target_id,
+                         task=body.task[:40], **serve_info)
+            finally:
+                guard.end(gen_token)
 
         except Exception as e:
             yield f"data: {_json.dumps({'type':'error','error':str(e)[:200]})}\n\n"

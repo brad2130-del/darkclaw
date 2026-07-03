@@ -166,11 +166,15 @@ class HealEngine:
                 result = repair.output
     """
 
-    def __init__(self, memory_engine=None, orchestrator=None):
+    def __init__(self, memory_engine=None, orchestrator=None, breaker=None):
         self.memory   = memory_engine
         self.orc      = orchestrator
         self._history: List[Failure] = []
         self._escalation_queue: List[Failure] = []
+        if breaker is None:
+            from core.guardrails import breaker as _default_breaker
+            breaker = _default_breaker
+        self.breaker  = breaker
 
     async def heal(
         self,
@@ -192,6 +196,28 @@ class HealEngine:
             context=context,
         )
         self._history.append(failure)
+
+        # Circuit breaker: if this exact failure signature keeps recurring,
+        # stop auto-healing and hand it to a human — repeatedly "fixing" the
+        # same thing unattended is how the June guardian loop happened.
+        breaker_sig = f"heal:{agent_id}:{failure_type.value}"
+        if not self.breaker.allows(breaker_sig):
+            self._escalation_queue.append(failure)
+            emit(EventType.HEAL_FAILED, agent_id,
+                 failure_type=failure_type, breaker_open=True,
+                 queued_for_review=True)
+            return RepairResult(
+                success=False,
+                strategy=RepairStrategy.ESCALATE,
+                attempts=0,
+                teach_signal={
+                    "failure_type": failure_type,
+                    "strategy": None,
+                    "attempts": 0,
+                    "success": False,
+                    "breaker_open": True,
+                },
+            )
 
         # Non-auto-fixable failures skip retries and go straight to the human
         # queue — no point burning attempts on errors we can't repair in code.
@@ -218,6 +244,7 @@ class HealEngine:
              error=str(error)[:200],
              strategies=[s.value for s in strategies])
 
+        prev_err_sig = None
         for attempt, strategy in enumerate(strategies[:MAX_ATTEMPTS], 1):
             failure.attempt = attempt
             emit(EventType.HEAL_ATTEMPT, agent_id,
@@ -230,6 +257,7 @@ class HealEngine:
                 if result.success:
                     failure.resolved  = True
                     failure.resolution = strategy.value
+                    self.breaker.record_success(breaker_sig)
                     emit(EventType.HEAL_SUCCESS, agent_id,
                          strategy=strategy, attempts=attempt,
                          output_preview=str(result.output)[:100])
@@ -244,9 +272,19 @@ class HealEngine:
             except Exception as repair_err:
                 emit(EventType.SYSTEM_ERROR, agent_id,
                      msg=f"Repair attempt {attempt} failed: {repair_err}")
+                # Diminishing returns: two identical errors in a row means
+                # further strategies are burning time, not making progress.
+                err_sig = str(repair_err)[:120]
+                if err_sig == prev_err_sig:
+                    emit(EventType.HEAL_FAILED, agent_id,
+                         failure_type=failure_type,
+                         diminishing_returns=True, attempts=attempt)
+                    break
+                prev_err_sig = err_sig
                 continue
 
         # All strategies exhausted
+        self.breaker.record_failure(breaker_sig)
         self._escalation_queue.append(failure)
         emit(EventType.HEAL_FAILED, agent_id,
              failure_type=failure_type,

@@ -98,33 +98,18 @@ class WorkerAgent(BaseAgent):
                                 os.path.expanduser("~/darkclaw/data/darkclaw.db"))
             self._middleware = DarkclawMiddleware(db_path=db)
 
-        # Build system prompt from all context sources
-        sys_parts = []
-
-        mem = context.get("injected_memory", {})
-        if isinstance(mem, dict):
-            ans = mem.get("answer", "")
-            if ans and ans != "No memory found.":
-                sys_parts.append(f"[Darkclaw Memory]\n{ans}")
-
-        doc = context.get("doc_memory", {})
-        if isinstance(doc, dict):
-            doc_ans = doc.get("answer", "")
-            if doc_ans and doc_ans != "No memory found.":
-                sys_parts.append(f"[Uploaded Document Context]\n{doc_ans}")
-
-        tel = context.get("live_telemetry")
-        if tel:
-            sys_parts.append(
-                "[Live System Telemetry — measured seconds ago; report ONLY "
-                f"these numbers, do not invent metrics]\n{tel}")
-
+        # Build system prompt from all context sources — via the shared
+        # budget-enforced builder so the prompt can never silently overflow
+        # num_ctx (Ollama truncates the head, losing instructions first).
+        from core.context_budget import build_system_prompt
         if correction:
-            sys_parts.append(correction)
+            context = {**context, "correction_prompt": correction}
+        sys_prompt = build_system_prompt(context, task, model,
+                                         agent_id=self.agent_id)
 
         messages = []
-        if sys_parts:
-            messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
+        if sys_prompt:
+            messages.append({"role": "system", "content": sys_prompt})
         messages.append({"role": "user", "content": task})
 
         # Build litellm kwargs — Claude models need no Ollama options
