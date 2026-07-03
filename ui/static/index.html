@@ -780,6 +780,10 @@ input[type=checkbox]:hover { border-color: var(--gold); }
       <div id="heal-log" style="padding:4px 0 6px;max-height:120px;overflow-y:auto">
         <div class="hint" style="padding:10px">No healing events yet.</div>
       </div>
+      <div class="sec-hdr">Hardening <span id="hard-badge" class="badge badge-n">…</span></div>
+      <div id="hard-panel" style="padding:4px 0 6px;max-height:150px;overflow-y:auto">
+        <div class="hint" style="padding:10px">Loading hardening status…</div>
+      </div>
     </div>
   </div>
 
@@ -1536,10 +1540,37 @@ function clearAll(){S.agents={};S.facts=[];S.events=[];S.heals=[];S.escalations=
 //  MAIN LOOP + INIT
 // ══════════════════════════════════════════════════════════════
 function mainLoop(){drawTopo();updateBar();requestAnimationFrame(mainLoop);}
+// Hardening panel — polls the guardrail stack (breakers, drift, guards,
+// context-budget trims) so silent-failure defenses are visible at a glance.
+async function fetchHardening(){
+  try{
+    const [h,f]=await Promise.all([
+      fetch('/api/hardening').then(r=>r.json()),
+      fetch('/api/fleet').then(r=>r.json()),
+    ]);
+    const rows=[];
+    const open=Object.entries(h.circuit_breakers||{}).filter(([,s])=>s.open);
+    open.forEach(([sig,s])=>rows.push(`<div class="heal-row fail"><div class="heal-type fail">BREAKER OPEN</div><div style="font-size:10.5px">${sig} — retries in ${s.reopens_in_s}s</div></div>`));
+    (f.drift||[]).forEach(d=>rows.push(`<div class="heal-row"><div class="heal-type">CONFIG DRIFT</div><div style="font-size:10.5px">${d.model}: ${d.issue} (${d.node})${d.available_on&&d.available_on.length?' — found on '+d.available_on.join(', '):''}</div></div>`));
+    const busy=Object.entries(h.query_guards||{}).filter(([,v])=>v).map(([a])=>a);
+    if(busy.length)rows.push(`<div class="heal-row ok"><div class="heal-type ok">IN FLIGHT</div><div style="font-size:10.5px">${busy.join(', ')}</div></div>`);
+    const nodes=Object.entries(f.nodes||{}).map(([n,i])=>`<span style="color:${i.healthy?'var(--sage)':'var(--ember)'}">●</span> ${n}`).join('&nbsp;&nbsp;');
+    const cb=h.context_budget||{},he=h.heal_engine||{};
+    rows.push(`<div class="heal-row"><div class="heal-type">FLEET</div><div style="font-size:10.5px">${nodes}</div><div style="font-size:9.5px;opacity:.7;margin-top:2px">ctx trims ${cb.trims||0} · prompts ${cb.prompts_built||0} · escalated ${he.escalated||0}</div></div>`);
+    document.getElementById('hard-panel').innerHTML=rows.join('');
+    const issues=open.length+(f.drift||[]).length;
+    const b=document.getElementById('hard-badge');
+    b.textContent=issues?issues+' ⚠':'OK';
+    b.style.color=issues?'var(--ember)':'var(--sage)';
+  }catch(e){/* server restarting — retry on next tick */}
+}
+
 setFilter("all");
 renderAll();
 requestAnimationFrame(mainLoop);
 connectWS();
+fetchHardening();
+setInterval(fetchHardening,20000);
 
 // Electron shell integration
 if(window.electronShell){
