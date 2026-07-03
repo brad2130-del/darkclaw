@@ -221,6 +221,27 @@ class ModelRouter:
         return PI5_MODEL, opts
 
 
+def expected_placement() -> dict[str, str]:
+    """
+    model → the node url the config assigns it to. Fed to fleet.preflight()
+    so drift (model missing on its node, node down) is flagged at startup
+    instead of discovered by a failing user request.
+    """
+    base = (os.environ.get("OLLAMA_API_BASE")
+            or os.environ.get("OLLAMA_BASE_URL", "")).rstrip("/")
+    out = {}
+    for model, prof in MODEL_PROFILES.items():
+        if not model.startswith("ollama/"):
+            continue
+        if prof.get("_pi5") and OPENCLAW_PI5_URL:
+            out[model] = OPENCLAW_PI5_URL.rstrip("/")
+        elif prof.get("_memory_node") and MEMORY_NODE_URL:
+            out[model] = MEMORY_NODE_URL.rstrip("/")
+        elif base:
+            out[model] = base
+    return out
+
+
 # ── Complexity scoring ────────────────────────────────────────────────
 
 def score_complexity(task: str) -> float:

@@ -114,6 +114,7 @@ async def _startup():
         emit(EventType.AGENT_STARTED, aid,
              role=agent.config.role, model=agent.config.model)
     asyncio.create_task(_heartbeat_loop())
+    asyncio.create_task(_fleet_preflight_loop())
     if orc.memory:
         from core.curator import curator_loop
         asyncio.create_task(curator_loop(orc.memory))
@@ -132,6 +133,39 @@ async def _heartbeat_loop():
         }
         emit(EventType.HEALTH_OK, "darkclaw",
              msg="heartbeat", agents=agent_snap, vram=vram)
+
+
+async def _fleet_preflight_loop():
+    """
+    Config-drift watchdog: verify every configured model actually exists on
+    its assigned node (startup + every DARKCLAW_PREFLIGHT_INTERVAL seconds).
+    A finding here is a user-visible failure waiting to happen — surface it
+    as HEALTH_WARN before a request trips over it.
+    """
+    from core.fleet import fleet
+    from core.model_router import expected_placement
+    interval = float(os.environ.get("DARKCLAW_PREFLIGHT_INTERVAL", "600"))
+    while True:
+        try:
+            findings = await asyncio.to_thread(fleet.preflight, expected_placement())
+            for f in findings:
+                emit(EventType.HEALTH_WARN, "fleet", **f)
+            if not findings:
+                emit(EventType.HEALTH_OK, "fleet",
+                     msg="fleet preflight clean", nodes=list(fleet.nodes))
+        except Exception as e:
+            emit(EventType.SYSTEM_ERROR, "fleet", msg=f"preflight error: {e}")
+        await asyncio.sleep(interval)
+
+
+@app.get("/api/fleet")
+async def api_fleet():
+    """Live fleet map + config drift — the 'which node serves what' trace."""
+    from core.fleet import fleet
+    from core.model_router import expected_placement
+    snap  = await asyncio.to_thread(fleet.snapshot)
+    drift = await asyncio.to_thread(fleet.preflight, expected_placement())
+    return {"nodes": snap, "drift": drift}
 
 
 # ── pages ─────────────────────────────────────────────────────────────────
@@ -392,23 +426,22 @@ async def stream_submit(body: SubmitIn):
                 messages.append({"role": "system", "content": "\n\n".join(sys_parts)})
             messages.append({"role": "user", "content": body.task})
 
-            # Ollama routing — include placement options (num_gpu, num_ctx)
-            extra = {}
-            if model.startswith("ollama/"):
-                url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
-                if url:
-                    extra["api_base"] = url.rstrip("/")
-                if opts:
-                    extra["options"] = opts
+            # Ollama routing — router opts carry _api_base (memory node / Pi5)
+            opts = dict(opts)
+            api_base = opts.pop("_api_base", None)
 
             # Announce agent + model
             yield f"data: {_json.dumps({'type':'meta','agent_id':target_id,'model':model})}\n\n"
 
-            # Stream tokens — always close the response to release the Ollama socket,
-            # even if the SSE client disconnects or an exception is thrown mid-stream.
+            # Stream tokens through the resilient fleet layer (node/model
+            # failover + HEAL events). Always close the response to release
+            # the Ollama socket, even if the SSE client disconnects or an
+            # exception is thrown mid-stream.
             full_text = ""
-            response = litellm.completion(
-                model=model, messages=messages, stream=True, **extra
+            from core.llm_call import resilient_completion
+            response, serve_info = resilient_completion(
+                model=model, messages=messages, agent_id=target_id,
+                api_base=api_base, options=opts or None, stream=True,
             )
             try:
                 for chunk in response:
@@ -422,15 +455,17 @@ async def stream_submit(body: SubmitIn):
                 except Exception:
                     pass
 
-            yield f"data: {_json.dumps({'type':'done','agent_id':target_id})}\n\n"
+            # done carries the serve trace: which model/node really answered
+            # (may differ from meta if the fleet layer healed a reroute)
+            yield f"data: {_json.dumps({'type':'done','agent_id':target_id, **serve_info})}\n\n"
 
             # Fire RAG + update router heat
             if full_text and orc.memory:
-                router.record_use(model)
+                router.record_use(serve_info["model"])
                 from core.rag_extractor import schedule_rag
                 schedule_rag(body.task, full_text, target_id, orc.memory)
                 emit(EventType.AGENT_TASK_DONE, target_id,
-                     task=body.task[:40], model=model)
+                     task=body.task[:40], **serve_info)
 
         except Exception as e:
             yield f"data: {_json.dumps({'type':'error','error':str(e)[:200]})}\n\n"

@@ -168,12 +168,18 @@ class DarkclawMiddleware:
         else:
             enriched_messages = messages
 
-        # ── 2. LiteLLM call ──────────────────────────────────────────
-        response = litellm.completion(
+        # ── 2. LiteLLM call — via the resilient fleet layer so every
+        #    middleware consumer gets node/model failover for free ──────
+        from core.llm_call import resilient_completion
+        response, serve_info = resilient_completion(
             model=model,
             messages=enriched_messages,
+            agent_id=agent_id,
+            api_base=litellm_kwargs.pop("api_base", None),
+            options=litellm_kwargs.pop("options", None),
             **litellm_kwargs,
         )
+        memory_diff["served_by"] = serve_info
 
         # ── 3. Extract new facts from response ────────────────────────
         if self.auto_extract:
