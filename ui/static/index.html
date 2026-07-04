@@ -6,7 +6,7 @@
 <title>DarkClaw — Self-Healing Agent Harness</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
 /* ═══════════════════════════════════════════════════════════
    TOKENS — Book Burrow Warm Walnut (contrast-lifted v2)
@@ -195,6 +195,18 @@
 }
 [data-theme="ivory-studio"] .chat-send { color: #faf9f5; }
 [data-theme="ivory-studio"] body { color: #29261b; }
+
+/* Claude Desktop typographic pattern (from the ion-dist token sheet):
+   the AI's voice is serif, the chrome stays sans. Anthropic Serif is
+   licensed, so Studio themes use open Source Serif 4 instead. */
+[data-theme="clay-studio"], [data-theme="ivory-studio"] {
+  --serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+}
+[data-theme="clay-studio"] .msg-agent,
+[data-theme="ivory-studio"] .msg-agent {
+  font-family: var(--serif);
+  font-size: 14px; line-height: 1.6;
+}
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}

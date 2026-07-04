@@ -25,6 +25,7 @@ import networkx as nx
 import os
 import sqlite3
 import json
+import threading
 import time
 import uuid
 import re
@@ -471,13 +472,19 @@ class VectorMemory:
         self._metadata: List[dict] = []
         self._emb: List[List[float]] = []   # aligned with _chunks[:len(_emb)]
         self._node_ok = True
+        # Retrieves now run on threads (asyncio.to_thread), so the cache
+        # build races itself: two threads both see it empty, both embed the
+        # whole store, both extend → _emb longer than _chunks → IndexError
+        # on argsort indexes. One lock: single builder, consistent snapshots.
+        self._lock = threading.Lock()
 
     def ingest(self, text: str, metadata: dict = None):
-        self._chunks.append(text)
-        self._metadata.append(metadata or {})
+        with self._lock:
+            self._chunks.append(text)
+            self._metadata.append(metadata or {})
 
-    def _ensure_embedded(self) -> bool:
-        """Embed any chunks past the cached prefix. True if cache is usable."""
+    def _ensure_embedded_locked(self) -> bool:
+        """Embed chunks past the cached prefix. Caller must hold _lock."""
         if not self._node_ok:
             return False
         pending = self._chunks[len(self._emb):]
@@ -490,30 +497,42 @@ class VectorMemory:
         return bool(self._emb)
 
     def retrieve(self, query: str, top_k: int = 3) -> List[Tuple[str, float, dict]]:
-        if not self._chunks:
-            return []
-        if self._ensure_embedded():
+        with self._lock:
+            if not self._chunks:
+                return []
+            usable = self._ensure_embedded_locked()
+            if usable:
+                # snapshot with lengths pinned equal — new ingests after
+                # this point wait for the next retrieve
+                n = len(self._emb)
+                chunks, metas = self._chunks[:n], self._metadata[:n]
+                emb = list(self._emb)
+        if usable:
+            # query embed is a network call — deliberately outside the lock
             got = _embed_batch([query], "search_query")
             if got:
                 import numpy as np
                 q = np.asarray(got[0])
-                m = np.asarray(self._emb)
+                m = np.asarray(emb)
                 sims = (m @ q) / (
                     (np.linalg.norm(m, axis=1) * np.linalg.norm(q)) + 1e-9)
                 idx = sims.argsort()[::-1][:top_k]
-                return [(self._chunks[i], float(sims[i]), self._metadata[i])
+                return [(chunks[i], float(sims[i]), metas[i])
                         for i in idx if sims[i] > 0]
             self._node_ok = False
         return self._retrieve_tfidf(query, top_k)
 
     def _retrieve_tfidf(self, query: str, top_k: int) -> List[Tuple[str, float, dict]]:
         try:
-            corpus = self._chunks + [query]
+            with self._lock:
+                chunks = list(self._chunks)
+                metas = list(self._metadata)
+            corpus = chunks + [query]
             vec = TfidfVectorizer(stop_words="english")
             mat = vec.fit_transform(corpus)
             sims = cosine_similarity(mat[-1], mat[:-1]).flatten()
             idx = sims.argsort()[::-1][:top_k]
-            return [(self._chunks[i], float(sims[i]), self._metadata[i])
+            return [(chunks[i], float(sims[i]), metas[i])
                     for i in idx if sims[i] > 0]
         except Exception:
             return []

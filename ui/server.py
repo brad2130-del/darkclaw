@@ -22,6 +22,8 @@ Run:
 """
 import asyncio
 import os
+import subprocess
+import time
 
 # ── Config loading: prefer XDG config dir over project .env ─────────────
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -118,6 +120,23 @@ async def _startup():
     if orc.memory:
         from core.curator import curator_loop
         asyncio.create_task(curator_loop(orc.memory))
+        asyncio.create_task(_embed_warmup())
+
+
+async def _embed_warmup():
+    """
+    Pre-build the vector-memory embedding cache in the background.
+    Cold cache = the first query after every restart re-embeds the whole
+    store through the memory node (minutes) — that wait belongs to boot,
+    not to the first person who says hello.
+    """
+    try:
+        t0 = time.perf_counter()
+        await asyncio.to_thread(orc.memory.query, "warmup: prebuild embedding cache", "system")
+        emit(EventType.HEALTH_OK, "darkclaw", msg="embed cache warm",
+             warmup_s=round(time.perf_counter() - t0, 1))
+    except Exception as e:
+        emit(EventType.HEALTH_WARN, "darkclaw", msg=f"embed warmup failed: {e}")
 
 
 async def _heartbeat_loop():
@@ -156,6 +175,61 @@ async def _fleet_preflight_loop():
         except Exception as e:
             emit(EventType.SYSTEM_ERROR, "fleet", msg=f"preflight error: {e}")
         await asyncio.sleep(interval)
+
+
+def _read_cyd_gpu() -> dict:
+    """Compact GPU snapshot for the CYD dashboard — same nvidia-smi query as
+    BashVault/health_check.py, reshaped to numeric fields for on-device gauges."""
+    try:
+        raw = subprocess.check_output(
+            ["nvidia-smi",
+             "--query-gpu=temperature.gpu,utilization.gpu,memory.used,memory.total,power.draw,power.limit",
+             "--format=csv,noheader,nounits"],
+            encoding="utf-8", timeout=3,
+        ).strip().split(",")
+        return {
+            "online": True,
+            "temp_c": float(raw[0]),
+            "util_pct": float(raw[1]),
+            "vram_used_mb": float(raw[2]),
+            "vram_total_mb": float(raw[3]),
+            "power_w": float(raw[4]),
+            "power_limit_w": float(raw[5]),
+        }
+    except Exception:
+        return {"online": False}
+
+
+def _read_cyd_cpu_ram() -> dict:
+    with open("/proc/loadavg") as f:
+        load1, load5, load15 = f.read().split()[:3]
+    freq_mhz = None
+    try:
+        with open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq") as f:
+            freq_mhz = round(int(f.read().strip()) / 1000, 0)
+    except Exception:
+        pass
+    mem_total = mem_avail = None
+    with open("/proc/meminfo") as f:
+        for line in f:
+            if line.startswith("MemTotal:"):
+                mem_total = int(line.split()[1])
+            elif line.startswith("MemAvailable:"):
+                mem_avail = int(line.split()[1])
+    used_pct = round(100 * (1 - mem_avail / mem_total), 1) if mem_total and mem_avail else None
+    return {
+        "load1": float(load1), "load5": float(load5), "load15": float(load15),
+        "freq_mhz": freq_mhz, "ram_used_pct": used_pct,
+    }
+
+
+@app.get("/api/cyd")
+async def api_cyd():
+    """Single compact JSON payload for the ESP32 CYD dashboard's Acer page —
+    keeps the on-device HTTP client to one request per poll cycle."""
+    gpu = await asyncio.to_thread(_read_cyd_gpu)
+    cpu_ram = await asyncio.to_thread(_read_cyd_cpu_ram)
+    return {"gpu": gpu, **cpu_ram}
 
 
 @app.get("/api/fleet")
@@ -544,6 +618,10 @@ async def stream_submit(body: SubmitIn):
                 guard.end(gen_token)
 
         except Exception as e:
+            # full traceback to the journal — the SSE error line alone has
+            # cost us real debugging time ("list index out of range", July 3)
+            import traceback
+            traceback.print_exc()
             yield f"data: {_json.dumps({'type':'error','error':str(e)[:200]})}\n\n"
 
     return StreamingResponse(generate(), media_type="text/event-stream",
