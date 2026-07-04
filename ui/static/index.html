@@ -138,6 +138,63 @@
   --mono: "JetBrains Mono", ui-monospace, monospace;
 }
 [data-theme="lavender-dusk"] .side-nav { background: #0a0812; }
+
+/* ── Clay Studio — warm charcoal / clay, Claude Desktop feel ──
+   Palette informed by Anthropic's published design tokens (warm
+   near-neutral ramp, single clay accent, low-alpha ivory borders —
+   the alpha borders are what make edges feel soft, keep them). */
+[data-theme="clay-studio"] {
+  --bg:       #1f1e1d;
+  --deep:     #141413;
+  --panel:    #262624;
+  --surface:  #30302e;
+  --surface2: #393936;
+  --border:   #eaddd826;
+  --bhi:      #eaddd84d;
+  --text:     #faf9f5;
+  --muted:    #b8b5a9;
+  --faint:    #73716a;
+  --gold:     #d97757;
+  --gold-hi:  #e29070;
+  --ember:    #dd5353;
+  --sage:     #65bb30;
+  --clay:     #d4a27f;
+  --sky:      #74abe2;
+  --parch:    #faf9f5;
+  --font: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+[data-theme="clay-studio"] .side-nav { background: #1a1918; }
+
+/* ── Ivory Studio — cream / clay light, Claude Desktop feel ── */
+[data-theme="ivory-studio"] {
+  --bg:       #faf9f5;
+  --deep:     #f0eee6;
+  --panel:    #ffffff;
+  --surface:  #f5f4ed;
+  --surface2: #e8e6dc;
+  --border:   #706b5740;
+  --bhi:      #706b57a6;
+  --text:     #29261b;
+  --muted:    #535146;
+  --faint:    #a3a094;
+  --gold:     #c6613f;
+  --gold-hi:  #d97757;
+  --ember:    #b53333;
+  --sage:     #2f7613;
+  --clay:     #cc785c;
+  --sky:      #1b67b2;
+  --parch:    #29261b;
+  --font: "Inter", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+[data-theme="ivory-studio"] .side-nav  { background: #f0eee6; }
+[data-theme="ivory-studio"] .topo-wrap { background: #f5f4ed; }
+[data-theme="ivory-studio"] .hdr {
+  background: linear-gradient(90deg, #f0eee6 0%, #faf9f5 60%, #f0eee6 100%);
+}
+[data-theme="ivory-studio"] .chat-send { color: #faf9f5; }
+[data-theme="ivory-studio"] body { color: #29261b; }
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
 html,body{height:100%;overflow:hidden;}
 body{background:var(--bg);color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
@@ -1148,6 +1205,28 @@ input[type=checkbox]:hover { border-color: var(--gold); }
             </div>
             <div class="theme-name">Lavender Dusk</div>
             <div class="theme-sub">Dark · Indigo / soft mauve</div>
+          </div>
+          <div class="theme-card" data-theme="clay-studio" onclick="applyTheme('clay-studio')">
+            <div class="theme-preview">
+              <span class="tp-dot" style="background:#1f1e1d;border:1px solid #3a3936"></span>
+              <span class="tp-dot" style="background:#faf9f5"></span>
+              <span class="tp-dot" style="background:#d97757"></span>
+              <span class="tp-dot" style="background:#65bb30"></span>
+              <span class="tp-dot" style="background:#dd5353"></span>
+            </div>
+            <div class="theme-name">Clay Studio</div>
+            <div class="theme-sub">Dark · Warm charcoal / clay — Claude Desktop feel</div>
+          </div>
+          <div class="theme-card" data-theme="ivory-studio" onclick="applyTheme('ivory-studio')">
+            <div class="theme-preview">
+              <span class="tp-dot" style="background:#faf9f5;border:1px solid #d5d1c3"></span>
+              <span class="tp-dot" style="background:#29261b"></span>
+              <span class="tp-dot" style="background:#c6613f"></span>
+              <span class="tp-dot" style="background:#2f7613"></span>
+              <span class="tp-dot" style="background:#b53333"></span>
+            </div>
+            <div class="theme-name">Ivory Studio</div>
+            <div class="theme-sub">Light · Cream / clay — Claude Desktop feel</div>
           </div>
         </div>
       </div>
