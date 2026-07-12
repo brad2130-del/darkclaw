@@ -187,14 +187,19 @@ def _read_cyd_gpu() -> dict:
              "--format=csv,noheader,nounits"],
             encoding="utf-8", timeout=3,
         ).strip().split(",")
+        
+        def safe_float(v):
+            cleaned = v.strip()
+            return 0.0 if cleaned == "[N/A]" or not cleaned else float(cleaned)
+
         return {
             "online": True,
-            "temp_c": float(raw[0]),
-            "util_pct": float(raw[1]),
-            "vram_used_mb": float(raw[2]),
-            "vram_total_mb": float(raw[3]),
-            "power_w": float(raw[4]),
-            "power_limit_w": float(raw[5]),
+            "temp_c": safe_float(raw[0]),
+            "util_pct": safe_float(raw[1]),
+            "vram_used_mb": safe_float(raw[2]),
+            "vram_total_mb": safe_float(raw[3]),
+            "power_w": safe_float(raw[4]),
+            "power_limit_w": safe_float(raw[5]),
         }
     except Exception:
         return {"online": False}

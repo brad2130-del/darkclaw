@@ -93,14 +93,19 @@ class Orchestrator:
         context.setdefault("task_text", task)
         context.setdefault("fallback_model", agent.config.fallback_model)
 
+        memory_tier = None
+        retrieved_context = None
+
         # ── inject Darkclaw memory (s05) ────────────────────────────────
         # In threads: memory.query embeds via the memory node and can take
         # minutes on a cold cache — on the event loop it froze the server.
         if self.memory and "injected_memory" not in context:
             qr = await asyncio.to_thread(self.memory.query, task, target_id)
             context["injected_memory"] = qr.to_tool_result()
+            memory_tier = qr._classify_tier()
+            retrieved_context = qr.answer
             emit(EventType.MEMORY_QUERY, target_id,
-                 query=task[:80], tier=qr._classify_tier(), method=qr.method)
+                 query=task[:80], tier=memory_tier, method=qr.method)
 
             # Cross-query the shared doc namespace so uploaded documents
             # are visible to every agent regardless of who ingested them.
@@ -148,6 +153,17 @@ class Orchestrator:
             router.record_use(best_model)  # update GPU heat tracking
             from core.rag_extractor import schedule_rag
             schedule_rag(task, result.output, target_id, self.memory)
+
+        # ── distillation tap (fire-and-forget) ───────────────────────────
+        # Priority-zero feed for the distillation pipeline (~/distillation):
+        # real traffic, tagged with its actual memory tier, into the current
+        # 60-day cycle's corpus file. Only successful, non-empty results —
+        # failures belong in teacher_edu's correction queue, not here.
+        if result and result.success and result.output:
+            from core.distill_tap import schedule_tap
+            schedule_tap(task, str(result.output), target_id,
+                        memory_tier=memory_tier, retrieved_context=retrieved_context,
+                        teacher_model=best_model)
 
         return result
 
