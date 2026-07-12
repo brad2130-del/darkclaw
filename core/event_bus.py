@@ -54,6 +54,12 @@ class EventType(str, Enum):
     TEACH_WIN         = "teach.win"
     TEACH_QUARANTINE  = "teach.quarantine"
 
+    # Approvals (human-in-the-loop for privileged tools)
+    APPROVAL_REQUEST  = "approval.request"
+    APPROVAL_GRANTED  = "approval.granted"
+    APPROVAL_DENIED   = "approval.denied"
+    APPROVAL_EXPIRED  = "approval.expired"
+
     # System
     SYSTEM_START      = "system.start"
     SYSTEM_STOP       = "system.stop"

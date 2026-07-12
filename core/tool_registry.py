@@ -31,6 +31,7 @@ Adding a new tool:
         "handler": my_async_handler
     })
 """
+import inspect
 from typing import Any, Callable, Dict, List, Optional
 from core.event_bus import emit, EventType
 
@@ -72,7 +73,14 @@ class ToolRegistry:
              tool=tool_name, input_preview=str(tool_input)[:80])
         try:
             handler = self._tools[tool_name]["handler"]
-            result = await handler(tool_input)
+            # Handlers that gate on *who* is calling (the approval queue needs
+            # it to attribute a request) declare an agent_id parameter. Keep
+            # the plain handler(input) contract for everyone else rather than
+            # smuggling agent_id inside tool_input, where a model could forge it.
+            if "agent_id" in inspect.signature(handler).parameters:
+                result = await handler(tool_input, agent_id=agent_id)
+            else:
+                result = await handler(tool_input)
             emit(EventType.AGENT_TOOL_RESULT, agent_id,
                  tool=tool_name, result_preview=str(result)[:80])
             return str(result)

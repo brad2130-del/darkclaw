@@ -699,6 +699,31 @@ async def delete_doc(doc_id: str):
     return {"ok": ok}
 
 
+# ── Approval API (human-in-the-loop terminal) ─────────────────────────────
+# An agent that wants to run a state-changing command parks here until a
+# human decides. Pending requests are process-local: a 'yes' must not
+# survive a restart, because the context that justified it did not.
+
+@app.get("/api/approvals")
+async def list_approvals():
+    from core.approvals import queue
+    return {"pending": queue.pending()}
+
+
+@app.post("/api/approvals/{request_id}/approve")
+async def approve_request(request_id: str):
+    from core.approvals import queue
+    ok = queue.resolve(request_id, True)
+    return {"ok": ok, "error": None if ok else "unknown or already-resolved request"}
+
+
+@app.post("/api/approvals/{request_id}/deny")
+async def deny_request(request_id: str):
+    from core.approvals import queue
+    ok = queue.resolve(request_id, False)
+    return {"ok": ok, "error": None if ok else "unknown or already-resolved request"}
+
+
 @app.post("/api/docs/{doc_id}/analyze")
 async def analyze_doc(doc_id: str):
     """

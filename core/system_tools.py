@@ -135,7 +135,7 @@ async def _grep_search(inp: dict) -> str:
     return await asyncio.to_thread(run)
 
 
-async def _run_command(inp: dict) -> str:
+async def _run_command(inp: dict, agent_id: str = "coder") -> str:
     cmd = inp.get("command", "")
     if not cmd or not cmd.strip():
         return "Error: 'command' is required."
@@ -146,6 +146,20 @@ async def _run_command(inp: dict) -> str:
     cwd = os.path.expanduser(inp.get("cwd") or HOME)
     if not os.path.isdir(cwd):
         return f"Error: cwd '{cwd}' is not a directory."
+
+    # ── permission gate ────────────────────────────────────────────────
+    # Read-only commands run straight through; everything else parks for a
+    # human. DARKCLAW_TERMINAL_POLICY=auto skips the gate entirely — for a
+    # trusted single-user box only, never a shop node.
+    if os.environ.get("DARKCLAW_TERMINAL_POLICY", "ask").lower() != "auto":
+        from core.approvals import classify, queue, Decision
+        decision, reason = classify(cmd)
+        if decision == Decision.DENY:
+            return f"Blocked: {reason}."
+        if decision == Decision.ASK:
+            granted, note = await queue.request(agent_id, cmd, reason, cwd)
+            if not granted:
+                return note
 
     def run():
         try:
@@ -200,9 +214,13 @@ def register_system_tools(registry):
     if os.environ.get("DARKCLAW_TERMINAL", "0") in ("1", "true", "True"):
         registry.register({
             "name": "run_command",
-            "description": ("Run a shell command on the host as the darkclaw user "
-                            "and return its output. Interpreter/shell/sudo prefixes "
-                            "and destructive commands are refused."),
+            "description": ("Run a shell command on the host and return its output. "
+                            "Read-only commands (ls, cat, grep, git status, "
+                            "nvidia-smi, journalctl...) run immediately. Anything "
+                            "that could change state pauses for human approval — "
+                            "so prefer a single clear command over a chain, and "
+                            "expect a wait. Interpreter/shell/sudo prefixes and "
+                            "destructive commands are always refused."),
             "input_schema": {
                 "type": "object",
                 "properties": {
