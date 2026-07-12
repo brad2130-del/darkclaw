@@ -276,6 +276,11 @@ class Orchestrator:
         healer.orc = orc
         orc._register_default_tools()
 
+        # System tools: search/grep always; run_command only when
+        # DARKCLAW_TERMINAL=1 (set it in the service env, never on shop nodes).
+        from core.system_tools import register_system_tools
+        register_system_tools(orc.tools)
+
         if with_default_agents:
             from agents.worker import WorkerAgent
             from agents.coder  import CoderAgent
@@ -310,7 +315,8 @@ class Orchestrator:
             orc.register_agent(CoderAgent(
                 AgentConfig(agent_id="coder", role="coder",
                             model=CODER_MODEL,
-                            teacher_model=claude_coder), memory=memory))
+                            teacher_model=claude_coder),
+                memory=memory, tool_registry=orc.tools))
 
             # Fallback — always Claude Haiku; promoted when chain degrades
             from agents.fallback_agent import FallbackAgent

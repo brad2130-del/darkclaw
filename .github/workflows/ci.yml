@@ -10,15 +10,26 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+          cache: pip
+
       - name: Install dependencies
-        run: pip install -r requirements.txt
-      - name: Run Darkclaw tests
-        run: python memory/darkclaw_core.py
+        run: pip install -r requirements-dev.txt
+
       - name: Syntax check all Python
         run: python -m py_compile core/*.py memory/*.py agents/*.py
-      - name: Check imports
-        run: python -c "from core.event_bus import bus; print('event_bus ok')"
+
+      # The real gate. This step previously ran `python memory/darkclaw_core.py`
+      # — a demo script, not the suite — so the tests in tests/ never gated a
+      # single push, and CI sat red for weeks on a hardcoded /home/claude path
+      # instead of telling us anything about the code.
+      - name: Run test suite
+        env:
+          # CI must never inherit a developer's terminal opt-in, and the DB
+          # must not assume a writable $HOME.
+          DARKCLAW_TERMINAL: "0"
+          DARKCLAW_DB: /tmp/darkclaw-ci.db
+        run: python -m pytest tests/ -q

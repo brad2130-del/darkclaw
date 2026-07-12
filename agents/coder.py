@@ -22,7 +22,9 @@ Workflow per task:
 The TeachEngine's run_eval() can be pointed at coding ground-truth
 pairs to track when the local model "graduates" off needing the teacher.
 """
+import asyncio
 import hashlib
+import json
 import os
 import time
 
@@ -65,10 +67,12 @@ class CoderAgent(BaseAgent):
 
     CONFIDENCE_THRESHOLD = 0.65
     SOLO_GRADUATION      = 10     # streak needed before skipping teacher on "known" tasks
+    MAX_TOOL_ROUNDS      = 6      # tool-call rounds before forcing a text answer
 
-    def __init__(self, config: AgentConfig, memory=None):
+    def __init__(self, config: AgentConfig, memory=None, tool_registry=None):
         super().__init__(config)
         self.memory         = memory
+        self.tools          = tool_registry
         self.teacher_model  = getattr(config, "teacher_model", "claude-sonnet-4-6")
         self._middleware    = None   # lazy DarkclawMiddleware
         self._solo_streak   = 0
@@ -118,8 +122,8 @@ class CoderAgent(BaseAgent):
             if mem_confidence > 0.7:
                 memory_hit = qr.to_tool_result().get("answer", "")
 
-        # ── 2. Call local model ────────────────────────────────────────
-        local_output = self._call(mw, self.config.model, task, context)
+        # ── 2. Call local model (with tools when a registry is wired) ──
+        local_output = await self._call_tools(mw, self.config.model, task, context)
         local_conf   = _score_confidence(local_output)
 
         # ── 3. Decide whether teacher is needed ────────────────────────
@@ -137,7 +141,7 @@ class CoderAgent(BaseAgent):
             # No teacher available — return best we have
             return local_output, False
 
-        teacher_output = self._call(mw, self.teacher_model, task, context)
+        teacher_output = await self._call_tools(mw, self.teacher_model, task, context)
 
         # ── 5. Store teaching signal in Darkclaw memory ────────────────
         self._ingest_teach_signal(task, local_output, teacher_output)
@@ -160,6 +164,86 @@ class CoderAgent(BaseAgent):
         try:
             resp, _ = mw.completion(model=model, messages=messages,
                                     agent_id=self.agent_id, **extra)
+            return resp.choices[0].message.content or ""
+        except Exception as e:
+            return f"[{model} error: {e}]"
+
+    # ── tool-use loop ──────────────────────────────────────────────────
+
+    @staticmethod
+    def _extra_kwargs(model: str) -> dict:
+        extra = {}
+        if model.startswith("ollama"):
+            url = os.environ.get("OLLAMA_API_BASE") or os.environ.get("OLLAMA_BASE_URL", "")
+            if url:
+                extra["api_base"] = url.rstrip("/")
+        return extra
+
+    async def _call_tools(self, mw, model: str, task: str, context: dict) -> str:
+        """
+        Agentic loop: the model may call registered tools (search_files,
+        grep_search, run_command, memory_*) any number of rounds before
+        answering. Falls back to the plain single-shot _call when no
+        registry is wired, no tools are registered, or the provider
+        rejects the tools= parameter — the coder must never get worse
+        because tools exist.
+        """
+        schemas = self.tools.get_schemas() if self.tools else []
+        if not schemas:
+            return await asyncio.to_thread(self._call, mw, model, task, context)
+
+        messages = []
+        if context.get("correction_prompt"):
+            messages.append({"role": "system", "content": context["correction_prompt"]})
+        messages.append({"role": "user", "content": task})
+        extra = self._extra_kwargs(model)
+
+        for _round in range(self.MAX_TOOL_ROUNDS):
+            try:
+                resp, _ = await asyncio.to_thread(
+                    mw.completion, model=model, messages=messages,
+                    agent_id=self.agent_id, tools=schemas, **extra)
+            except Exception:
+                # Provider/model without tool support — degrade to plain call
+                return await asyncio.to_thread(self._call, mw, model, task, context)
+
+            msg = resp.choices[0].message
+            calls = getattr(msg, "tool_calls", None) or []
+            if not calls:
+                return msg.content or ""
+
+            messages.append({
+                "role": "assistant",
+                "content": msg.content or "",
+                "tool_calls": [
+                    c.model_dump() if hasattr(c, "model_dump") else dict(c)
+                    for c in calls
+                ],
+            })
+            for c in calls:
+                fn = getattr(c, "function", None) or (c.get("function", {}) if isinstance(c, dict) else {})
+                name = getattr(fn, "name", None) or (fn.get("name", "") if isinstance(fn, dict) else "")
+                raw = getattr(fn, "arguments", None) or (fn.get("arguments", "{}") if isinstance(fn, dict) else "{}")
+                try:
+                    args = json.loads(raw) if isinstance(raw, str) else dict(raw or {})
+                except (json.JSONDecodeError, TypeError):
+                    args = {}
+                result = await self.tools.dispatch(self.agent_id, name, args)
+                call_id = getattr(c, "id", None) or (c.get("id") if isinstance(c, dict) else None) or name
+                messages.append({
+                    "role": "tool",
+                    "tool_call_id": call_id,
+                    "name": name,
+                    "content": str(result)[:8000],
+                })
+
+        # Rounds exhausted — force a final text answer, tools withheld.
+        messages.append({"role": "user",
+                         "content": "Answer now using the tool results above."})
+        try:
+            resp, _ = await asyncio.to_thread(
+                mw.completion, model=model, messages=messages,
+                agent_id=self.agent_id, **extra)
             return resp.choices[0].message.content or ""
         except Exception as e:
             return f"[{model} error: {e}]"

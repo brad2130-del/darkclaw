@@ -28,11 +28,15 @@ def _collect(types=None):
 
 @pytest.mark.asyncio
 async def test_bootstrap_wires_everything(orc):
-    assert set(orc.agents) == {"rosie", "kit"}
+    assert set(orc.agents) == {"rosie", "kit", "sage", "bea", "coder", "fallback"}
     assert orc.guardian is not None
-    assert set(orc.guardian.watched) == {"rosie", "kit"}
+    assert set(orc.guardian.watched) == set(orc.agents)
     assert "memory_query" in orc.tools._tools
     assert "memory_teach" in orc.tools._tools
+    assert "search_files" in orc.tools._tools
+    assert "grep_search" in orc.tools._tools
+    # coder gets the registry so its tool loop can dispatch
+    assert orc.agents["coder"].tools is orc.tools
 
 
 @pytest.mark.asyncio
@@ -77,6 +81,7 @@ async def test_guardian_flags_errored_agent(orc):
     broken.status = "error"
     orc.register_agent(broken)
     await orc.guardian.check_once()
+    await asyncio.sleep(0.05)  # let the fire-and-forget event bus flush
     assert EventType.HEALTH_FAIL in _collect()
 
 

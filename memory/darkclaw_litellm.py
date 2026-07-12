@@ -19,10 +19,12 @@ import time
 # (python memory/darkclaw_litellm.py). Prefer the package path so we don't load
 # a second, separate copy of the module when imported by the orchestrator.
 try:
-    from memory.darkclaw_core import DarkclawEngine, Turn, MULTI_VALUED_PREDICATES
+    from memory.darkclaw_core import (
+        DarkclawEngine, Turn, MULTI_VALUED_PREDICATES, DEFAULT_DB)
 except ImportError:
     sys.path.insert(0, os.path.dirname(__file__))
-    from darkclaw_core import DarkclawEngine, Turn, MULTI_VALUED_PREDICATES
+    from darkclaw_core import (
+        DarkclawEngine, Turn, MULTI_VALUED_PREDICATES, DEFAULT_DB)
 
 
 # ─────────────────────────────────────────────
@@ -126,7 +128,7 @@ class DarkclawMiddleware:
 
     def __init__(
         self,
-        db_path: str = "/home/claude/darkclaw/darkclaw.db",
+        db_path: str = DEFAULT_DB,
         inject_context: bool = True,
         auto_extract: bool = True,
         verbose: bool = False,

@@ -1,0 +1,5 @@
+# Darkclaw dev/test dependencies (CI installs these on top of requirements.txt)
+-r requirements.txt
+
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

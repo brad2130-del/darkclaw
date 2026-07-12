@@ -22,6 +22,7 @@ Three memory tiers (mirrors Darkclaw Green/Yellow/Red classifier):
 """
 
 import networkx as nx
+import hashlib
 import os
 import sqlite3
 import json
@@ -29,10 +30,19 @@ import threading
 import time
 import uuid
 import re
+from array import array
 from dataclasses import dataclass, field, asdict
 from typing import Optional, List, Dict, Tuple, Any
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+
+
+# Canonical DB location. Defined here (not in core.orchestrator) because the
+# memory layer must not import the core layer — orchestrator imports us.
+DEFAULT_DB = os.environ.get(
+    "DARKCLAW_DB",
+    os.path.expanduser("~/darkclaw/data/darkclaw.db"),
+)
 
 
 # ─────────────────────────────────────────────
@@ -436,6 +446,17 @@ _EMBED_URL   = os.environ.get("DARKCLAW_MEMORY_NODE_URL",
 _EMBED_MODEL = os.environ.get("DARKCLAW_EMBED_MODEL", "nomic-embed-text:latest")
 
 
+def _cache_key(text: str, prefix: str) -> str:
+    """
+    Identity of an embedding. Keyed on the exact bytes sent to the model —
+    model, prefix, and the same [:2000] truncation _embed_batch applies —
+    so a model or prefix change can never serve a stale vector. Keyed on
+    content rather than turn_id so identical text across agents embeds once.
+    """
+    payload = f"{_EMBED_MODEL}\x00{prefix}\x00{text[:2000]}"
+    return hashlib.sha256(payload.encode("utf-8", "replace")).hexdigest()
+
+
 def _embed_batch(texts: List[str], prefix: str) -> Optional[List[List[float]]]:
     """Batch-embed via the memory node. Returns None on any failure."""
     import urllib.request
@@ -467,10 +488,11 @@ class VectorMemory:
     whenever the memory node is unreachable so retrieval never breaks.
     """
 
-    def __init__(self):
+    def __init__(self, store=None):
         self._chunks: List[str] = []
         self._metadata: List[dict] = []
         self._emb: List[List[float]] = []   # aligned with _chunks[:len(_emb)]
+        self._store = store                 # DarkclawPersistence, for the cache
         self._node_ok = True
         # Retrieves now run on threads (asyncio.to_thread), so the cache
         # build races itself: two threads both see it empty, both embed the
@@ -484,16 +506,40 @@ class VectorMemory:
             self._metadata.append(metadata or {})
 
     def _ensure_embedded_locked(self) -> bool:
-        """Embed chunks past the cached prefix. Caller must hold _lock."""
+        """
+        Embed chunks past the cached prefix. Caller must hold _lock.
+
+        Order matters: the persistent cache is consulted first, and only
+        genuine misses go to the network. On a warm DB that means zero
+        embed calls at startup instead of one per turn ever recorded.
+        """
         if not self._node_ok:
             return False
         pending = self._chunks[len(self._emb):]
-        if pending:
-            got = _embed_batch(pending, "search_document")
+        if not pending:
+            return bool(self._emb)
+
+        keys = [_cache_key(t, "search_document") for t in pending]
+        cached = self._store.get_embeddings(keys) if self._store else {}
+
+        miss_idx = [i for i, k in enumerate(keys) if k not in cached]
+        if miss_idx:
+            got = _embed_batch([pending[i] for i in miss_idx], "search_document")
             if got is None:
                 self._node_ok = False   # degrade to TF-IDF this process
                 return False
-            self._emb.extend(got)
+            fresh = []
+            for i, vec in zip(miss_idx, got):
+                cached[keys[i]] = vec
+                fresh.append((keys[i], vec))
+            if self._store:
+                # Deduplicate: two pending chunks with identical text share a
+                # key, and executemany would otherwise insert the same row twice.
+                self._store.save_embeddings(
+                    list({k: v for k, v in fresh}.items()), _EMBED_MODEL)
+
+        # Extend in chunk order — _emb must stay index-aligned with _chunks.
+        self._emb.extend(cached[k] for k in keys)
         return bool(self._emb)
 
     def retrieve(self, query: str, top_k: int = 3) -> List[Tuple[str, float, dict]]:
@@ -554,6 +600,9 @@ class DarkclawPersistence:
         self.db_path = db_path
         # Single connection — asyncio is single-threaded so no locking needed.
         # check_same_thread=False is a safety valve for any off-loop calls.
+        # The embedding cache is the exception: retrieves run on real threads
+        # (asyncio.to_thread), so its reads/writes take an explicit lock.
+        self._emb_lock = threading.Lock()
         self._conn = sqlite3.connect(db_path, check_same_thread=False)
         self._conn.execute("PRAGMA journal_mode=WAL")
         self._conn.execute("PRAGMA synchronous=NORMAL")
@@ -590,10 +639,62 @@ class DarkclawPersistence:
                 detail     TEXT,
                 timestamp  REAL DEFAULT (unixepoch('now','subsec'))
             );
+            CREATE TABLE IF NOT EXISTS embeddings (
+                cache_key TEXT PRIMARY KEY,
+                model     TEXT NOT NULL,
+                dim       INTEGER NOT NULL,
+                vec       BLOB NOT NULL,
+                timestamp REAL
+            );
             CREATE INDEX IF NOT EXISTS idx_facts_subpred
                 ON facts(agent_id, subject, predicate);
         """)
         self._conn.commit()
+
+    # ── embedding cache ────────────────────────────────────────────────
+    # Embeddings are deterministic: the same text under the same model is
+    # always the same vector. Before this table they were recomputed from
+    # scratch on every process start — 4k+ turns re-embedded over the
+    # network on the first query after each restart, which is exactly the
+    # "cold cache can take minutes" stall the orchestrator works around
+    # with asyncio.to_thread. Persisting them makes restarts free.
+
+    def get_embeddings(self, keys: List[str]) -> Dict[str, List[float]]:
+        """Fetch cached vectors for the given keys. Missing keys are absent."""
+        out: Dict[str, List[float]] = {}
+        if not keys:
+            return out
+        with self._emb_lock:
+            # Chunk the IN clause — SQLite caps host params (999 by default).
+            for i in range(0, len(keys), 500):
+                batch = keys[i:i + 500]
+                marks = ",".join("?" * len(batch))
+                rows = self._conn.execute(
+                    f"SELECT cache_key, vec FROM embeddings WHERE cache_key IN ({marks})",
+                    batch,
+                ).fetchall()
+                for key, blob in rows:
+                    arr = array("f")
+                    arr.frombytes(blob)
+                    out[key] = arr.tolist()
+        return out
+
+    def save_embeddings(self, items: List[Tuple[str, List[float]]], model: str):
+        """Persist (cache_key, vector) pairs. Idempotent."""
+        if not items:
+            return
+        now = time.time()
+        rows = [
+            (key, model, len(vec), array("f", vec).tobytes(), now)
+            for key, vec in items
+        ]
+        with self._emb_lock:
+            self._conn.executemany(
+                "INSERT OR REPLACE INTO embeddings "
+                "(cache_key, model, dim, vec, timestamp) VALUES (?,?,?,?,?)",
+                rows,
+            )
+            self._conn.commit()
 
     def save_fact(self, fact: Fact):
         self._conn.execute("""
@@ -674,7 +775,7 @@ class DarkclawEngine:
       Three-tier classifier    → GREEN / YELLOW / RED per query confidence
     """
 
-    def __init__(self, db_path: str = "/home/claude/darkclaw/darkclaw.db"):
+    def __init__(self, db_path: str = DEFAULT_DB):
         import os; os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.aliases     = AliasRegistry()
         self.persistence = DarkclawPersistence(db_path)
@@ -729,7 +830,7 @@ class DarkclawEngine:
 
     def _vector(self, agent_id: str) -> VectorMemory:
         if agent_id not in self._vectors:
-            self._vectors[agent_id] = VectorMemory()
+            self._vectors[agent_id] = VectorMemory(store=self.persistence)
         return self._vectors[agent_id]
 
     def _next_turn(self, agent_id: str) -> int:
@@ -849,9 +950,11 @@ class DarkclawEngine:
 
 if __name__ == "__main__":
     import os
-    os.makedirs("/home/claude/darkclaw", exist_ok=True)
-    # Fresh DB for test
-    db = "/home/claude/darkclaw/darkclaw_test.db"
+    import tempfile
+    # Fresh DB for test. Must not assume a writable $HOME — CI runners and
+    # containers have neither /home/claude (the old hardcoded path) nor a
+    # guaranteed home dir.
+    db = os.path.join(tempfile.gettempdir(), "darkclaw_selftest.db")
     if os.path.exists(db):
         os.remove(db)
 
